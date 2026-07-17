@@ -1,0 +1,67 @@
+.expenses-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.expenses-controls-advanced {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.add-expense-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.glass-modal-content {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.badge-category {
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: inline-block;
+}
+
+.cat-bills {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.cat-salaries {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.cat-extras {
+  background-color: #e0e7ff;
+  color: #4f46e5;
+}
+
+.cat-investment {
+  background-color: #fae8ff;
+  color: #c026d3;
+}
+
+.text-main {
+  color: var(--text-main);
+}
