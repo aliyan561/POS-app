@@ -25,7 +25,7 @@
 }
 
 #print-receipt {
-  width: 80mm;
+  width: 60mm;
   background-color: white;
   padding: 15px;
   box-shadow: var(--shadow);
@@ -447,4 +447,32 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+@media print {
+  @page {
+    /* This forces the 6cm width and lets the length flow naturally! */
+    size: 60mm auto; 
+    margin: 0;
+  }
+  
+  /* Hide the rest of the POS app, only show the receipt */
+  body * {
+    visibility: hidden;
+  }
+  
+  #print-receipt, #print-receipt * {
+    visibility: visible;
+  }
+  
+  #print-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 60mm; /* Lock it to 6cm */
+    margin: 0;
+    padding: 2mm; /* Just a tiny bit of breathing room */
+    box-shadow: none;
+    border: none;
+  }
 }
