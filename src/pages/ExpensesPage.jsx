@@ -14,10 +14,13 @@ export default function ExpensesPage() {
   const [filterMonth, setFilterMonth] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
+  const [filterCategory, setFilterCategory] = useState('All');
+
+  const EXPENSE_CATEGORIES = ['Utilities', 'Salaries', 'Admin Expense', 'Maintenance', 'Disposables', 'Subscriptions'];
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [expenseForm, setExpenseForm] = useState({ title: '', category: 'Bills', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
+  const [expenseForm, setExpenseForm] = useState({ title: '', category: 'Utilities', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -64,7 +67,13 @@ export default function ExpensesPage() {
 
   // Filtered Data
   const filteredOrders = useMemo(() => allOrders.filter(o => passesDateFilter(o.order_date)), [allOrders, dateFilterType, filterMonth, filterStartDate, filterEndDate]);
-  const filteredExpenses = useMemo(() => allExpenses.filter(e => passesDateFilter(e.expense_date)), [allExpenses, dateFilterType, filterMonth, filterStartDate, filterEndDate]);
+  const filteredExpenses = useMemo(() => {
+    return allExpenses.filter(e => {
+      const passDate = passesDateFilter(e.expense_date);
+      const passCategory = filterCategory === 'All' ? true : e.category === filterCategory;
+      return passDate && passCategory;
+    });
+  }, [allExpenses, dateFilterType, filterMonth, filterStartDate, filterEndDate, filterCategory]);
 
   // Calculations
   const totalRevenue = filteredOrders.reduce((sum, order) => sum + Number(order.final_total_pkr), 0);
@@ -88,7 +97,7 @@ export default function ExpensesPage() {
       alert("Failed to add expense: " + error.message);
     } else {
       setIsModalOpen(false);
-      setExpenseForm({ title: '', category: 'Bills', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
+      setExpenseForm({ title: '', category: 'Utilities', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
       fetchData(); // Refresh table
     }
   };
@@ -97,6 +106,23 @@ export default function ExpensesPage() {
     <div className="expenses-layout">
       {/* Top Controls: Advanced Filters */}
       <div className="expenses-controls-advanced mb-4">
+        <div className="filter-group">
+          <label className="filter-label"><Calendar size={14}/> Category</label>
+          <div className="time-filters-advanced">
+            <select 
+              className="form-control" 
+              value={filterCategory} 
+              onChange={e => setFilterCategory(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}
+            >
+              <option value="All">All Categories</option>
+              {EXPENSE_CATEGORIES.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <div className="filter-group">
           <label className="filter-label"><Calendar size={14}/> Timeframe</label>
           <div className="time-filters-advanced">
@@ -218,7 +244,7 @@ export default function ExpensesPage() {
                       </td>
                       <td className="font-medium text-main">{exp.title}</td>
                       <td>
-                        <span className={`badge-category cat-${exp.category.toLowerCase()}`}>
+                        <span className={`badge-category cat-${exp.category.toLowerCase().replace(/\s+/g, '-')}`}>
                           {exp.category}
                         </span>
                       </td>
@@ -266,10 +292,9 @@ export default function ExpensesPage() {
                     value={expenseForm.category}
                     onChange={e => setExpenseForm({...expenseForm, category: e.target.value})}
                   >
-                    <option value="Bills">Bills</option>
-                    <option value="Salaries">Salaries</option>
-                    <option value="Extras">Extras</option>
-                    <option value="Investment">Investment</option>
+                    {EXPENSE_CATEGORIES.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>

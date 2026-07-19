@@ -42,9 +42,9 @@
   display: inline-block;
 }
 
-.cat-bills {
-  background-color: #fef3c7;
-  color: #d97706;
+.cat-utilities {
+  background-color: #dbeafe;
+  color: #1d4ed8;
 }
 
 .cat-salaries {
@@ -52,14 +52,24 @@
   color: #059669;
 }
 
-.cat-extras {
-  background-color: #e0e7ff;
-  color: #4f46e5;
+.cat-admin-expense {
+  background-color: #f3f4f6;
+  color: #4b5563;
 }
 
-.cat-investment {
-  background-color: #fae8ff;
-  color: #c026d3;
+.cat-maintenance {
+  background-color: #ffedd5;
+  color: #c2410c;
+}
+
+.cat-disposables {
+  background-color: #f3e8ff;
+  color: #7e22ce;
+}
+
+.cat-subscriptions {
+  background-color: #fce7f3;
+  color: #be185d;
 }
 
 .text-main {

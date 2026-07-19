@@ -299,7 +299,7 @@ export default function PosPage() {
               <p>Please collect your reports between 3:30 PM to 5:30 PM on reporting date</p>
               <p>We wish you good health</p>
               <div style={{ borderTop: '1px dashed #000', margin: '15px 0' }}></div>
-              <p style={{ textAlign: 'center', fontSize: '11px', lineHeight: '1.4' }}>Ground Floor, Bhagwandas Building, Opp. Civil Hospital Karachi (emergency gate)</p>
+              <p style={{ textAlign: 'center', fontSize: '11px', lineHeight: '1.4' }}>Address: RC 8-5-2, Mohanlal Bhagwandas Building, Civil Hospital Road, Off M.A. Jinnah Road, Karachi</p>
             </div>
           </div>
         </div>
