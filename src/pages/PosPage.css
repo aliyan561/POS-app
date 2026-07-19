@@ -25,7 +25,8 @@
 }
 
 #print-receipt {
-  width: 60mm;
+  width: 100%;
+  max-width: 300px; /* Keep the preview looking like a receipt */
   background-color: white;
   padding: 15px;
   box-shadow: var(--shadow);
@@ -451,8 +452,7 @@
 
 @media print {
   @page {
-    /* This forces the 6cm width and lets the length flow naturally! */
-    size: 60mm auto; 
+    /* Let the browser handle the page size based on user selection */
     margin: 0;
   }
   
@@ -469,7 +469,8 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 60mm; /* Lock it to 6cm */
+    width: 100%; /* Let the browser adjust to whatever paper size is selected */
+    max-width: 100%;
     margin: 0;
     padding: 2mm; /* Just a tiny bit of breathing room */
     box-shadow: none;
