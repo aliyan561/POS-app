@@ -1,0 +1,213 @@
+.attendance-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 1.5rem;
+}
+
+.attendance-filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.attendance-filter-input {
+  flex: 1;
+  max-width: 250px;
+}
+
+.attendance-table-container {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.log-attendance-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Monthly Matrix Styles */
+.attendance-matrix-container {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.matrix-table th,
+.matrix-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.matrix-table th {
+  background-color: var(--surface);
+  color: var(--text-muted);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.matrix-table .sticky-col {
+  position: sticky;
+  left: 0;
+  background-color: var(--surface);
+  z-index: 20;
+  text-align: left;
+  border-right: 2px solid var(--border);
+  min-width: 150px;
+}
+
+.matrix-table .summary-col {
+  min-width: 60px;
+  background-color: var(--primary-light);
+  border-right: 2px solid var(--border);
+}
+
+.matrix-table .day-col {
+  min-width: 40px;
+}
+
+.matrix-table .cell-present {
+  background-color: #dcfce7; /* Light green */
+  color: #166534;
+  font-weight: 600;
+}
+
+.matrix-table .cell-absent {
+  background-color: #fee2e2; /* Light red */
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.matrix-table .cell-late {
+  background-color: #dcfce7; /* Light green */
+  color: #166534;
+  font-weight: 600;
+}
+
+/* Highlighted cell style for hover effects */
+.matrix-table .highlighted-cell {
+  outline: 3px solid var(--primary);
+  outline-offset: -3px;
+  background-color: var(--primary-light);
+  color: var(--primary);
+  transform: scale(1.1);
+  z-index: 50;
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s ease;
+}
+
+/* Salary Summary Section */
+.salary-summary-section {
+  padding: 1.5rem;
+  background-color: var(--secondary);
+  border-top: 1px solid var(--border);
+}
+
+.salary-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-main);
+}
+
+.salary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.salary-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.salary-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow);
+}
+
+.salary-card.expanded {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+}
+
+.salary-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.emp-name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.net-salary {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 1.125rem;
+}
+
+.salary-details-basic {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.penalty-breakdown {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border);
+}
+
+.breakdown-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
+}
+
+.penalty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.penalty-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0.5rem;
+  background-color: var(--background);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.penalty-item:hover {
+  background-color: #fef2f2; /* Light red hover */
+}
+
+.no-penalties {
+  font-size: 0.875rem;
+  color: var(--success);
+  font-style: italic;
+}
