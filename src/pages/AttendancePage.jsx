@@ -189,6 +189,25 @@ export default function AttendancePage() {
     }
   };
 
+  const handleMarkAbsent = async (emp, log) => {
+    if (role !== 'admin') return;
+    if (!log) return; 
+
+    const confirmMsg = `Mark ${emp.name} as Absent on ${log.date}? This will remove their recorded hours for this day.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    const { error } = await supabase
+      .from('attendance')
+      .delete()
+      .eq('id', log.id);
+
+    if (error) {
+      alert("Failed to mark absent: " + error.message);
+    } else {
+      fetchData();
+    }
+  };
+
   // Monthly Matrix Helpers
   const renderMonthlyMatrix = () => {
     const [year, month] = filterMonth.split('-');
@@ -251,7 +270,17 @@ export default function AttendancePage() {
                     }
 
                     return (
-                      <td key={day} className={`day-col ${cellClass}`} title={dateStr} style={{ position: 'relative' }}>
+                      <td 
+                        key={day} 
+                        className={`day-col ${cellClass}`} 
+                        title={dateStr} 
+                        style={{ position: 'relative', cursor: role === 'admin' && log ? 'pointer' : 'default' }}
+                        onClick={() => {
+                          if (role === 'admin' && log) {
+                            handleMarkAbsent(emp, log);
+                          }
+                        }}
+                      >
                         {cellText}
                         {cellClass === 'cell-late' && (
                            <span style={{ 
