@@ -36,7 +36,7 @@ export default function ExpensesPage() {
 
   async function fetchData() {
     setIsLoading(true);
-    
+
     // Fetch orders for revenue
     const { data: ordersData } = await supabase
       .from('orders')
@@ -56,9 +56,9 @@ export default function ExpensesPage() {
   // Filter Helper
   const passesDateFilter = (dateStr) => {
     if (dateFilterType === 'all') return true;
-    
+
     const date = parseISO(dateStr);
-    
+
     if (dateFilterType === 'daily') return isToday(date);
     if (dateFilterType === 'weekly') return isThisWeek(date);
     if (dateFilterType === 'month' && filterMonth) {
@@ -90,7 +90,7 @@ export default function ExpensesPage() {
   const handleAddExpense = async (e) => {
     e.preventDefault();
     if (!expenseForm.title || !expenseForm.amount_pkr || !expenseForm.expense_date) return;
-    
+
     setIsSubmitting(true);
     let error;
 
@@ -152,11 +152,11 @@ export default function ExpensesPage() {
       {/* Top Controls: Advanced Filters */}
       <div className="expenses-controls-advanced mb-4">
         <div className="filter-group">
-          <label className="filter-label"><Calendar size={14}/> Category</label>
+          <label className="filter-label"><Calendar size={14} /> Category</label>
           <div className="time-filters-advanced">
-            <select 
-              className="form-control" 
-              value={filterCategory} 
+            <select
+              className="form-control"
+              value={filterCategory}
               onChange={e => setFilterCategory(e.target.value)}
               style={{ padding: '0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}
             >
@@ -169,7 +169,7 @@ export default function ExpensesPage() {
         </div>
 
         <div className="filter-group">
-          <label className="filter-label"><Calendar size={14}/> Timeframe</label>
+          <label className="filter-label"><Calendar size={14} /> Timeframe</label>
           <div className="time-filters-advanced">
             <div className="time-filters">
               <button className={`filter-btn ${dateFilterType === 'all' ? 'active' : ''}`} onClick={() => setDateFilterType('all')}>All Time</button>
@@ -178,11 +178,11 @@ export default function ExpensesPage() {
               <button className={`filter-btn ${dateFilterType === 'month' ? 'active' : ''}`} onClick={() => setDateFilterType('month')}>Monthly</button>
               <button className={`filter-btn ${dateFilterType === 'custom' ? 'active' : ''}`} onClick={() => setDateFilterType('custom')}>Custom</button>
             </div>
-            
+
             {dateFilterType === 'month' && (
-              <input 
-                type="month" 
-                className="form-control" 
+              <input
+                type="month"
+                className="form-control"
                 value={filterMonth}
                 onChange={e => setFilterMonth(e.target.value)}
               />
@@ -190,16 +190,16 @@ export default function ExpensesPage() {
 
             {dateFilterType === 'custom' && (
               <div className="date-range-inputs">
-                <input 
-                  type="date" 
-                  className="form-control" 
+                <input
+                  type="date"
+                  className="form-control"
                   value={filterStartDate}
                   onChange={e => setFilterStartDate(e.target.value)}
                 />
                 <span className="text-muted">to</span>
-                <input 
-                  type="date" 
-                  className="form-control" 
+                <input
+                  type="date"
+                  className="form-control"
                   value={filterEndDate}
                   onChange={e => setFilterEndDate(e.target.value)}
                 />
@@ -220,7 +220,7 @@ export default function ExpensesPage() {
             <span className="stat-value">Rs {totalRevenue.toLocaleString()}</span>
           </div>
         </div>
-        
+
         <div className="stat-card">
           <div className="stat-icon bg-red-100 text-red-600">
             <TrendingDown size={24} />
@@ -252,7 +252,7 @@ export default function ExpensesPage() {
             <Plus size={18} /> Log New Expense
           </button>
         </div>
-        
+
         <div className="card-body p-0" style={{ overflowY: 'auto' }}>
           {isLoading ? (
             <div className="skeleton-table">
@@ -321,16 +321,16 @@ export default function ExpensesPage() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleAddExpense} className="modal-body">
               <div className="form-group">
                 <label className="form-label">Expense Title</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
+                <input
+                  type="text"
+                  className="form-control"
                   placeholder="e.g. Monthly Electricity Bill"
                   value={expenseForm.title}
-                  onChange={e => setExpenseForm({...expenseForm, title: e.target.value})}
+                  onChange={e => setExpenseForm({ ...expenseForm, title: e.target.value })}
                   required
                 />
               </div>
@@ -339,15 +339,15 @@ export default function ExpensesPage() {
                 <div style={{ flex: 1 }}>
                   <label className="form-label">Category</label>
                   {!showCustomCategory ? (
-                    <select 
-                      className="form-control" 
+                    <select
+                      className="form-control"
                       value={expenseForm.category}
                       onChange={e => {
                         if (e.target.value === 'custom') {
                           setShowCustomCategory(true);
-                          setExpenseForm({...expenseForm, category: ''});
+                          setExpenseForm({ ...expenseForm, category: '' });
                         } else {
-                          setExpenseForm({...expenseForm, category: e.target.value});
+                          setExpenseForm({ ...expenseForm, category: e.target.value });
                         }
                       }}
                       required
@@ -360,21 +360,21 @@ export default function ExpensesPage() {
                     </select>
                   ) : (
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input 
-                        type="text" 
-                        className="form-control" 
+                      <input
+                        type="text"
+                        className="form-control"
                         placeholder="New category name"
                         value={expenseForm.category}
-                        onChange={e => setExpenseForm({...expenseForm, category: e.target.value})}
+                        onChange={e => setExpenseForm({ ...expenseForm, category: e.target.value })}
                         autoFocus
                         required
                       />
-                      <button 
-                        type="button" 
-                        className="btn btn-outline" 
+                      <button
+                        type="button"
+                        className="btn btn-outline"
                         onClick={() => {
                           setShowCustomCategory(false);
-                          setExpenseForm({...expenseForm, category: ''});
+                          setExpenseForm({ ...expenseForm, category: '' });
                         }}
                         style={{ padding: '0 0.5rem' }}
                         title="Cancel"
@@ -386,12 +386,12 @@ export default function ExpensesPage() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label className="form-label">Amount (PKR)</label>
-                  <input 
-                    type="number" 
-                    className="form-control" 
+                  <input
+                    type="number"
+                    className="form-control"
                     placeholder="5000"
                     value={expenseForm.amount_pkr}
-                    onChange={e => setExpenseForm({...expenseForm, amount_pkr: e.target.value})}
+                    onChange={e => setExpenseForm({ ...expenseForm, amount_pkr: e.target.value })}
                     required
                     min="1"
                   />
@@ -400,25 +400,25 @@ export default function ExpensesPage() {
 
               <div className="form-group">
                 <label className="form-label">Date & Time</label>
-                <input 
-                  type="datetime-local" 
-                  className="form-control" 
+                <input
+                  type="datetime-local"
+                  className="form-control"
                   value={expenseForm.expense_date}
-                  onChange={e => setExpenseForm({...expenseForm, expense_date: e.target.value})}
+                  onChange={e => setExpenseForm({ ...expenseForm, expense_date: e.target.value })}
                   required
                 />
               </div>
 
               <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-outline"
                   onClick={() => setIsModalOpen(false)}
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-primary"
                   disabled={isSubmitting}
                 >

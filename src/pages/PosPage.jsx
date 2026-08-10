@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { Plus, Minus, Trash2, Printer, Edit2, X, ChevronRight } from 'lucide-react';
+import { Plus, Minus, Trash2, Printer, Edit2, X, ChevronRight, Search } from 'lucide-react';
 import './PosPage.css';
 import logoImg from '../../assets/with-text-logo.png';
 import { useAuth } from '../AuthContext';
@@ -28,6 +28,7 @@ export default function PosPage() {
   // Sub-type Selection Modal State
   const [subTypeModalOpen, setSubTypeModalOpen] = useState(false);
   const [selectedParentService, setSelectedParentService] = useState(null);
+  const [serviceSearch, setServiceSearch] = useState('');
 
   useEffect(() => {
     fetchServices();
@@ -61,6 +62,19 @@ export default function PosPage() {
   }, [orderSuccess, receiptId]);
 
   const parentServices = services.filter(s => !s.parent_id);
+
+  const filteredParentServices = parentServices.filter(service => {
+    if (!serviceSearch.trim()) return true;
+    const query = serviceSearch.toLowerCase();
+    if (service.service_name.toLowerCase().includes(query)) return true;
+    const children = services.filter(s => s.parent_id === service.id);
+    return children.some(c => c.service_name.toLowerCase().includes(query));
+  });
+
+  // When searching, also get matching child services to show directly in grid
+  const matchingChildServices = serviceSearch.trim() 
+    ? services.filter(s => s.parent_id && s.service_name.toLowerCase().includes(serviceSearch.toLowerCase()))
+    : [];
 
   const handleServiceClick = (service) => {
     const children = services.filter(s => s.parent_id === service.id);
@@ -416,14 +430,18 @@ export default function PosPage() {
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Visit Description / Notes</label>
-              <textarea 
-                className="form-control" 
-                rows="2"
-                placeholder="Routine checkup..."
-                value={patient.visit_description}
-                onChange={e => setPatient({...patient, visit_description: e.target.value})}
-              ></textarea>
+              <label className="form-label">Search Services</label>
+              <div style={{ position: 'relative' }}>
+                <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="Search by service name..."
+                  value={serviceSearch}
+                  onChange={e => setServiceSearch(e.target.value)}
+                  style={{ paddingLeft: '32px' }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -438,7 +456,41 @@ export default function PosPage() {
               </div>
             ) : (
               <div className="services-grid">
-              {parentServices.map(service => {
+              {/* When searching, show matching child services directly */}
+              {matchingChildServices.map(childService => {
+                const parent = services.find(s => s.id === childService.parent_id);
+                return (
+                  <button 
+                    key={childService.id} 
+                    className="service-card"
+                    onClick={() => addToBasket(childService)}
+                    style={{ borderColor: 'var(--primary)', borderWidth: '2px' }}
+                  >
+                    <div className="service-card-header">
+                      <span className="service-name">{childService.service_name}</span>
+                      {role === 'admin' && (
+                        <button className="edit-service-btn" onClick={(e) => openEditModal(childService, e)}>
+                          <Edit2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <span className="service-price">Rs {childService.price_pkr}</span>
+                    {parent && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{parent.service_name}</span>}
+                  </button>
+                );
+              })}
+              {/* Show parent services (filtered) */}
+              {filteredParentServices
+                .filter(service => {
+                  // If searching and all children already shown as direct matches, hide the parent "Select Sub-type" card
+                  if (!serviceSearch.trim()) return true;
+                  const query = serviceSearch.toLowerCase();
+                  // If parent name matches, always show it
+                  if (service.service_name.toLowerCase().includes(query)) return true;
+                  // If parent doesn't match but children do, hide parent (children shown above)
+                  return false;
+                })
+                .map(service => {
                 const hasChildren = services.some(s => s.parent_id === service.id);
                 return (
                   <button 
