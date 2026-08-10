@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabase';
-import { TrendingUp, Users, Calendar, Search, X, Filter } from 'lucide-react';
+import { TrendingUp, Users, Calendar, Search, X, Filter, Edit, Check } from 'lucide-react';
 import './DashboardPage.css';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, isToday, isThisWeek } from 'date-fns';
+import { useAuth } from '../AuthContext';
 
 export default function DashboardPage() {
+  const { role } = useAuth();
   const [allOrders, setAllOrders] = useState([]);
   const [servicesList, setServicesList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,6 +24,17 @@ export default function DashboardPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [isModalLoading, setIsModalLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone_number: '',
+    visit_description: '',
+    age: '',
+    gender: '',
+    referred_by: '',
+    final_total_pkr: 0,
+    discount_applied_pkr: 0
+  });
 
   useEffect(() => {
     fetchDashboardData();
@@ -39,6 +52,7 @@ export default function DashboardPage() {
         final_total_pkr,
         discount_applied_pkr,
         patients (
+          id,
           name,
           phone_number,
           visit_description,
@@ -134,6 +148,17 @@ export default function DashboardPage() {
 
   const handlePatientClick = async (order) => {
     setSelectedOrder(order);
+    setIsEditing(false);
+    setEditForm({
+      name: order.patients?.name || '',
+      phone_number: order.patients?.phone_number || '',
+      visit_description: order.patients?.visit_description || '',
+      age: order.patients?.age || '',
+      gender: order.patients?.gender || '',
+      referred_by: order.patients?.referred_by || '',
+      final_total_pkr: order.final_total_pkr || 0,
+      discount_applied_pkr: order.discount_applied_pkr || 0
+    });
     setIsModalLoading(true);
     
     const { data, error } = await supabase
@@ -160,6 +185,71 @@ export default function DashboardPage() {
   const closeModal = () => {
     setSelectedOrder(null);
     setOrderItems([]);
+    setIsEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedOrder?.patients?.id || !selectedOrder?.id) return;
+    
+    try {
+      const patientUpdate = {
+        name: editForm.name,
+        phone_number: editForm.phone_number,
+        visit_description: editForm.visit_description,
+        age: editForm.age,
+        gender: editForm.gender,
+        referred_by: editForm.referred_by
+      };
+
+      const orderUpdate = {
+        final_total_pkr: editForm.final_total_pkr,
+        discount_applied_pkr: editForm.discount_applied_pkr
+      };
+
+      const { error: patientError } = await supabase
+        .from('patients')
+        .update(patientUpdate)
+        .eq('id', selectedOrder.patients.id);
+        
+      if (patientError) throw patientError;
+
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update(orderUpdate)
+        .eq('id', selectedOrder.id);
+        
+      if (orderError) throw orderError;
+      
+      // Update local state
+      setAllOrders(prev => prev.map(o => {
+        if (o.id === selectedOrder.id) {
+          return {
+            ...o,
+            ...orderUpdate,
+            patients: {
+              ...o.patients,
+              ...patientUpdate
+            }
+          };
+        }
+        return o;
+      }));
+      
+      // Update selected order view
+      setSelectedOrder(prev => ({
+        ...prev,
+        ...orderUpdate,
+        patients: {
+          ...prev.patients,
+          ...patientUpdate
+        }
+      }));
+      
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Error updating record:", err);
+      alert("Failed to update record.");
+    }
   };
 
   return (
@@ -370,24 +460,78 @@ export default function DashboardPage() {
             </div>
             
             <div className="modal-body">
-              <div className="patient-summary">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h3 style={{ marginBottom: '4px' }}>{selectedOrder.patients?.name || 'Unknown'}</h3>
-                    <p className="text-muted" style={{ marginBottom: '4px' }}>
-                      {format(parseISO(selectedOrder.order_date), 'MMMM dd, yyyy - hh:mm a')}
-                    </p>
-                    {selectedOrder.patients?.phone_number && <p className="text-muted" style={{ marginBottom: 0 }}>{selectedOrder.patients.phone_number}</p>}
-                  </div>
-                  <div style={{ textAlign: 'right', fontSize: '0.9rem' }}>
-                    {selectedOrder.patients?.age && <div className="text-muted" style={{ marginBottom: '4px' }}>Age: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.age}</strong></div>}
-                    {selectedOrder.patients?.gender && <div className="text-muted" style={{ marginBottom: '4px' }}>Sex: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.gender}</strong></div>}
-                    {selectedOrder.patients?.referred_by && <div className="text-muted" style={{ marginBottom: '4px' }}>Ref: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.referred_by}</strong></div>}
-                  </div>
-                </div>
+              <div className="patient-summary" style={{ position: 'relative' }}>
+                {role === 'admin' && (
+                  <button 
+                    className="btn btn-sm btn-outline" 
+                    style={{ position: 'absolute', top: 0, right: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
+                    onClick={() => {
+                      if (isEditing) {
+                        handleSaveEdit();
+                      } else {
+                        setIsEditing(true);
+                      }
+                    }}
+                  >
+                    {isEditing ? <><Check size={14} /> Save</> : <><Edit size={14} /> Edit</>}
+                  </button>
+                )}
                 
-                {selectedOrder.patients?.visit_description && (
-                  <p className="visit-desc" style={{ marginTop: '0.75rem' }}>"{selectedOrder.patients.visit_description}"</p>
+                {isEditing ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '30px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label className="text-muted" style={{ fontSize: '0.8rem' }}>Name</label>
+                        <input className="form-control form-control-sm" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-muted" style={{ fontSize: '0.8rem' }}>Phone</label>
+                        <input className="form-control form-control-sm" value={editForm.phone_number} onChange={e => setEditForm({...editForm, phone_number: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-muted" style={{ fontSize: '0.8rem' }}>Age</label>
+                        <input className="form-control form-control-sm" value={editForm.age} onChange={e => setEditForm({...editForm, age: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-muted" style={{ fontSize: '0.8rem' }}>Gender</label>
+                        <select className="form-control form-control-sm" value={editForm.gender} onChange={e => setEditForm({...editForm, gender: e.target.value})}>
+                          <option value="">Select</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-muted" style={{ fontSize: '0.8rem' }}>Referred By</label>
+                        <input className="form-control form-control-sm" value={editForm.referred_by} onChange={e => setEditForm({...editForm, referred_by: e.target.value})} />
+                      </div>
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <label className="text-muted" style={{ fontSize: '0.8rem' }}>Visit Description</label>
+                        <textarea className="form-control form-control-sm" value={editForm.visit_description} onChange={e => setEditForm({...editForm, visit_description: e.target.value})} rows="2" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: role === 'admin' ? '30px' : '0' }}>
+                      <div>
+                        <h3 style={{ marginBottom: '4px' }}>{selectedOrder.patients?.name || 'Unknown'}</h3>
+                        <p className="text-muted" style={{ marginBottom: '4px' }}>
+                          {format(parseISO(selectedOrder.order_date), 'MMMM dd, yyyy - hh:mm a')}
+                        </p>
+                        {selectedOrder.patients?.phone_number && <p className="text-muted" style={{ marginBottom: 0 }}>{selectedOrder.patients.phone_number}</p>}
+                      </div>
+                      <div style={{ textAlign: 'right', fontSize: '0.9rem' }}>
+                        {selectedOrder.patients?.age && <div className="text-muted" style={{ marginBottom: '4px' }}>Age: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.age}</strong></div>}
+                        {selectedOrder.patients?.gender && <div className="text-muted" style={{ marginBottom: '4px' }}>Sex: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.gender}</strong></div>}
+                        {selectedOrder.patients?.referred_by && <div className="text-muted" style={{ marginBottom: '4px' }}>Ref: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.referred_by}</strong></div>}
+                      </div>
+                    </div>
+                    
+                    {selectedOrder.patients?.visit_description && (
+                      <p className="visit-desc" style={{ marginTop: '0.75rem' }}>"{selectedOrder.patients.visit_description}"</p>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -415,15 +559,29 @@ export default function DashboardPage() {
               <div className="order-totals">
                 <div className="totals-row">
                   <span>Subtotal</span>
-                  <span>Rs {Number(selectedOrder.final_total_pkr) + Number(selectedOrder.discount_applied_pkr)}</span>
+                  <span>Rs {isEditing ? (Number(editForm.final_total_pkr) + Number(editForm.discount_applied_pkr)) : (Number(selectedOrder.final_total_pkr) + Number(selectedOrder.discount_applied_pkr))}</span>
                 </div>
                 <div className="totals-row text-danger">
                   <span>Discount</span>
-                  <span>- Rs {selectedOrder.discount_applied_pkr}</span>
+                  {isEditing ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span>- Rs</span>
+                      <input type="number" className="form-control form-control-sm" style={{ width: '80px', padding: '2px 5px' }} value={editForm.discount_applied_pkr} onChange={e => setEditForm({...editForm, discount_applied_pkr: e.target.value})} />
+                    </div>
+                  ) : (
+                    <span>- Rs {selectedOrder.discount_applied_pkr}</span>
+                  )}
                 </div>
                 <div className="totals-row grand-total">
                   <span>Final Total</span>
-                  <span className="text-primary">Rs {selectedOrder.final_total_pkr}</span>
+                  {isEditing ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span className="text-primary">Rs</span>
+                      <input type="number" className="form-control form-control-sm" style={{ width: '100px', fontWeight: 'bold' }} value={editForm.final_total_pkr} onChange={e => setEditForm({...editForm, final_total_pkr: e.target.value})} />
+                    </div>
+                  ) : (
+                    <span className="text-primary">Rs {selectedOrder.final_total_pkr}</span>
+                  )}
                 </div>
               </div>
             </div>
