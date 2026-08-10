@@ -17,6 +17,7 @@ export default function PosPage() {
   const [isLoadingServices, setIsLoadingServices] = useState(true);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [receiptId, setReceiptId] = useState(null);
+  const [printMode, setPrintMode] = useState('both'); // 'both', 'original', 'token'
 
   // Service Modals State
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
@@ -45,19 +46,34 @@ export default function PosPage() {
   // Handle reliable printing using effect and requestAnimationFrame
   useEffect(() => {
     if (orderSuccess && receiptId) {
-      // Double rAF ensures the browser has finished painting the new state
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+      const runPrintSequence = async () => {
+        // Step 1: Print Original
+        setPrintMode('original');
+        
+        // Wait for React to render the original receipt only
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        
+        window.print();
+        
+        // Step 2: Ask to print PDC Slip
+        if (window.confirm("Original receipt printed. Click OK to print PDC Slip.")) {
+          setPrintMode('token');
+          // Wait for React to render the token receipt only
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           window.print();
-          
-          setOrderSuccess(false);
-          setReceiptId(null);
-          setPatient({ name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '' });
-          setBasket([]);
-          setDiscountValue('');
-          setDiscountType('amount');
-        });
-      });
+        }
+        
+        // Step 3: Reset everything
+        setPrintMode('both');
+        setOrderSuccess(false);
+        setReceiptId(null);
+        setPatient({ name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '' });
+        setBasket([]);
+        setDiscountValue('');
+        setDiscountType('amount');
+      };
+      
+      runPrintSequence();
     }
   }, [orderSuccess, receiptId]);
 
@@ -267,93 +283,98 @@ export default function PosPage() {
       <div className="pos-receipt-col">
         <div className="receipt-preview-wrapper">
           <div id="print-receipt">
-            <div className="receipt-header">
-              <img src={logoImg} alt="Prime Diagnostic Centre Logo" className="receipt-logo" style={{ margin: '0 auto 10px auto', display: 'block', maxWidth: '100%' }} />
-              <h2>Prime Diagnostic Centre</h2>
-              <p>0314-1117447</p>
-              <p><strong>Customer Slip</strong></p>
-            </div>
-            <div className="receipt-details">
-              <p><strong>Receipt #:</strong> {receiptId || 'Pending'}</p>
-              <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
-              <p><strong>Patient:</strong> {patient.name || 'N/A'}</p>
-              {(patient.age || patient.gender) && (
-                <p>
-                  {patient.age && <span><strong>Age:</strong> {patient.age} &nbsp;&nbsp;</span>}
-                  {patient.gender && <span><strong>Gender:</strong> {patient.gender}</span>}
-                </p>
-              )}
-              {patient.referred_by && <p><strong>Referred by:</strong> {patient.referred_by}</p>}
-              {patient.phone_number && <p><strong>Phone:</strong> {patient.phone_number}</p>}
-            </div>
-            <table className="receipt-items">
-              <thead>
-                <tr>
-                  <th>Service</th>
-                  <th>Qty</th>
-                  <th>Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {basket.map((item, idx) => (
-                  <tr key={idx}>
-                    <td>{item.service_name}</td>
-                    <td>{item.quantity}</td>
-                    <td>Rs {Number(item.price_pkr) * item.quantity}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="receipt-totals">
-              <p>Subtotal: <span>Rs {subtotal}</span></p>
-              <p>Discount: <span>Rs {Math.round(discountAmount)} {discountType === 'percentage' && discountValue ? `(${discountValue}%)` : ''}</span></p>
-              <h3>Total: <span>Rs {finalTotal}</span></h3>
-            </div>
-            <div className="receipt-footer">
-              <p>Please collect your reports between 3:30 PM to 5:30 PM on reporting date</p>
-              <p>We wish you good health</p>
-              <div style={{ borderTop: '1px dashed #000', margin: '15px 0' }}></div>
-              <p style={{ textAlign: 'center', fontSize: '11px', lineHeight: '1.4' }}>Address: RC 8-5-2, Mohanlal Bhagwandas Building, Civil Hospital Road, Off M.A. Jinnah Road, Karachi</p>
-            </div>
-
-            {/* ✂ Cut Line Separator */}
-            <div className="receipt-cut-line">
-              <span>✂ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑</span>
-            </div>
-
-            {/* Token Receipt (Patient Copy) */}
-            <div className="token-receipt">
-              <div className="receipt-header">
-                <h2>Prime Diagnostic Centre</h2>
-                <p><strong>Patient Token</strong></p>
-              </div>
-              <div className="receipt-details">
-                <p><strong>Receipt #:</strong> {receiptId || 'Pending'}</p>
-                <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
-                <p><strong>Patient:</strong> {patient.name || 'N/A'}</p>
-              </div>
-              <table className="receipt-items">
-                <thead>
-                  <tr>
-                    <th>Service</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {basket.map((item, idx) => (
-                    <tr key={idx}>
-                      <td>{item.service_name}</td>
-                      <td>{item.quantity}</td>
-                      <td>Rs {Number(item.price_pkr) * item.quantity}</td>
+            {/* Original Receipt */}
+            {(printMode === 'both' || printMode === 'original') && (
+              <>
+                <div className="receipt-header">
+                  <img src={logoImg} alt="Prime Diagnostic Centre Logo" className="receipt-logo" style={{ margin: '0 auto 10px auto', display: 'block', maxWidth: '100%' }} />
+                  <h2>Prime Diagnostic Centre</h2>
+                  <p>0314-1117447</p>
+                  <p><strong>Customer Slip</strong></p>
+                </div>
+                <div className="receipt-details">
+                  <p><strong>Receipt #:</strong> {receiptId || 'Pending'}</p>
+                  <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
+                  <p><strong>Patient:</strong> {patient.name || 'N/A'}</p>
+                  {(patient.age || patient.gender) && (
+                    <p>
+                      {patient.age && <span><strong>Age:</strong> {patient.age} &nbsp;&nbsp;</span>}
+                      {patient.gender && <span><strong>Gender:</strong> {patient.gender}</span>}
+                    </p>
+                  )}
+                  {patient.referred_by && <p><strong>Referred by:</strong> {patient.referred_by}</p>}
+                  {patient.phone_number && <p><strong>Phone:</strong> {patient.phone_number}</p>}
+                </div>
+                <table className="receipt-items">
+                  <thead>
+                    <tr>
+                      <th>Service</th>
+                      <th>Qty</th>
+                      <th>Price</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="receipt-totals">
-                <h3>Total: <span>Rs {finalTotal}</span></h3>
+                  </thead>
+                  <tbody>
+                    {basket.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>{item.service_name}</td>
+                        <td>{item.quantity}</td>
+                        <td>Rs {Number(item.price_pkr) * item.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="receipt-totals">
+                  <p>Subtotal: <span>Rs {subtotal}</span></p>
+                  <p>Discount: <span>Rs {Math.round(discountAmount)} {discountType === 'percentage' && discountValue ? `(${discountValue}%)` : ''}</span></p>
+                  <h3>Total: <span>Rs {finalTotal}</span></h3>
+                </div>
+                <div className="receipt-footer">
+                  <p>Please collect your reports between 3:30 PM to 5:30 PM on reporting date</p>
+                  <p>We wish you good health</p>
+                  <div style={{ borderTop: '1px dashed #000', margin: '15px 0' }}></div>
+                  <p style={{ textAlign: 'center', fontSize: '11px', lineHeight: '1.4' }}>Address: RC 8-5-2, Mohanlal Bhagwandas Building, Civil Hospital Road, Off M.A. Jinnah Road, Karachi</p>
+                </div>
+              </>
+            )}
+
+            {/* ✂ Cut Line Separator (Only show when both are visible) */}
+            {printMode === 'both' && (
+              <div className="receipt-cut-line">
+                <span>✂ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑</span>
               </div>
-            </div>
+            )}
+
+            {/* Token Receipt (PDC Slip) */}
+            {(printMode === 'both' || printMode === 'token') && (
+              <div className="token-receipt">
+                <div className="receipt-header">
+                  <h2>Prime Diagnostic Centre</h2>
+                  <p><strong>PDC Slip</strong></p>
+                </div>
+                <div className="receipt-details">
+                  <p><strong>Receipt #:</strong> {receiptId || 'Pending'}</p>
+                  <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
+                  <p><strong>Patient:</strong> {patient.name || 'N/A'}</p>
+                </div>
+                <table className="receipt-items">
+                  <thead>
+                    <tr>
+                      <th>Service</th>
+                      <th>Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {basket.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>{item.service_name}</td>
+                        <td>{item.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {/* Removed Totals for PDC Slip */}
+              </div>
+            )}
           </div>
         </div>
       </div>
