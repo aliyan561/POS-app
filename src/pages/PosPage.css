@@ -450,6 +450,27 @@
   to { transform: rotate(360deg); }
 }
 
+/* Cut Line Between Receipts */
+.receipt-cut-line {
+  text-align: center;
+  margin: 20px 0;
+  font-size: 11px;
+  color: #666;
+  letter-spacing: 2px;
+  overflow: hidden;
+}
+
+/* Token Receipt Styles */
+.token-receipt {
+  padding-top: 10px;
+}
+
+.token-receipt .receipt-header {
+  border-bottom: 1px dashed #000;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
 @media print {
   @page {
     /* Let the browser handle the page size based on user selection */
@@ -475,5 +496,9 @@
     padding: 2mm; /* Just a tiny bit of breathing room */
     box-shadow: none;
     border: none;
+  }
+
+  .receipt-cut-line {
+    color: #000;
   }
 }

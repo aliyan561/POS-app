@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabase';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Plus, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, Plus, X, Edit } from 'lucide-react';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, isToday, isThisWeek } from 'date-fns';
 import './ExpensesPage.css';
 
@@ -17,10 +17,17 @@ export default function ExpensesPage() {
   const [filterCategory, setFilterCategory] = useState('All');
 
   const EXPENSE_CATEGORIES = ['Utilities', 'Salaries', 'Admin Expense', 'Maintenance', 'Disposables', 'Subscriptions'];
+  const allAvailableCategories = useMemo(() => {
+    const categoriesFromData = allExpenses.map(e => e.category);
+    return Array.from(new Set([...EXPENSE_CATEGORIES, ...categoriesFromData])).filter(Boolean);
+  }, [allExpenses]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [expenseForm, setExpenseForm] = useState({ title: '', category: 'Utilities', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
+  const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
+  const [currentEditId, setCurrentEditId] = useState(null);
+  const [showCustomCategory, setShowCustomCategory] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({ title: '', category: '', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -85,21 +92,59 @@ export default function ExpensesPage() {
     if (!expenseForm.title || !expenseForm.amount_pkr || !expenseForm.expense_date) return;
     
     setIsSubmitting(true);
-    const { data, error } = await supabase.from('expenses').insert([{
-      title: expenseForm.title,
-      category: expenseForm.category,
-      amount_pkr: Number(expenseForm.amount_pkr),
-      expense_date: new Date(expenseForm.expense_date).toISOString()
-    }]);
+    let error;
+
+    if (modalMode === 'edit') {
+      const { error: updateError } = await supabase
+        .from('expenses')
+        .update({
+          title: expenseForm.title,
+          category: expenseForm.category,
+          amount_pkr: Number(expenseForm.amount_pkr),
+          expense_date: new Date(expenseForm.expense_date).toISOString()
+        })
+        .eq('id', currentEditId);
+      error = updateError;
+    } else {
+      const { error: insertError } = await supabase.from('expenses').insert([{
+        title: expenseForm.title,
+        category: expenseForm.category,
+        amount_pkr: Number(expenseForm.amount_pkr),
+        expense_date: new Date(expenseForm.expense_date).toISOString()
+      }]);
+      error = insertError;
+    }
 
     setIsSubmitting(false);
     if (error) {
-      alert("Failed to add expense: " + error.message);
+      alert(`Failed to ${modalMode} expense: ` + error.message);
     } else {
       setIsModalOpen(false);
-      setExpenseForm({ title: '', category: 'Utilities', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
+      setShowCustomCategory(false);
+      setExpenseForm({ title: '', category: '', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
       fetchData(); // Refresh table
     }
+  };
+
+  const handleEditClick = (exp) => {
+    setModalMode('edit');
+    setCurrentEditId(exp.id);
+    setShowCustomCategory(false);
+    setExpenseForm({
+      title: exp.title,
+      category: exp.category,
+      amount_pkr: exp.amount_pkr,
+      expense_date: format(parseISO(exp.expense_date), "yyyy-MM-dd'T'HH:mm")
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleAddNewClick = () => {
+    setModalMode('add');
+    setCurrentEditId(null);
+    setShowCustomCategory(false);
+    setExpenseForm({ title: '', category: '', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
+    setIsModalOpen(true);
   };
 
   return (
@@ -116,7 +161,7 @@ export default function ExpensesPage() {
               style={{ padding: '0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}
             >
               <option value="All">All Categories</option>
-              {EXPENSE_CATEGORIES.map(c => (
+              {allAvailableCategories.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -203,7 +248,7 @@ export default function ExpensesPage() {
       <div className="card flex-1" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="card-header flex-between" style={{ padding: '1.25rem 1.5rem' }}>
           <span>Expense Transactions</span>
-          <button className="btn btn-primary add-expense-btn" onClick={() => setIsModalOpen(true)}>
+          <button className="btn btn-primary add-expense-btn" onClick={handleAddNewClick}>
             <Plus size={18} /> Log New Expense
           </button>
         </div>
@@ -231,6 +276,7 @@ export default function ExpensesPage() {
                     <th>Title</th>
                     <th>Category</th>
                     <th className="text-right">Amount</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -251,6 +297,11 @@ export default function ExpensesPage() {
                       <td className="text-right font-semibold text-danger">
                         - Rs {exp.amount_pkr.toLocaleString()}
                       </td>
+                      <td className="text-right">
+                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem' }} onClick={() => handleEditClick(exp)}>
+                          <Edit size={14} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -265,7 +316,7 @@ export default function ExpensesPage() {
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="glass-modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add New Expense</h2>
+              <h2>{modalMode === 'edit' ? 'Edit Expense' : 'Add New Expense'}</h2>
               <button className="close-btn" onClick={() => setIsModalOpen(false)}>
                 <X size={20} />
               </button>
@@ -287,15 +338,51 @@ export default function ExpensesPage() {
               <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
                   <label className="form-label">Category</label>
-                  <select 
-                    className="form-control" 
-                    value={expenseForm.category}
-                    onChange={e => setExpenseForm({...expenseForm, category: e.target.value})}
-                  >
-                    {EXPENSE_CATEGORIES.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                  {!showCustomCategory ? (
+                    <select 
+                      className="form-control" 
+                      value={expenseForm.category}
+                      onChange={e => {
+                        if (e.target.value === 'custom') {
+                          setShowCustomCategory(true);
+                          setExpenseForm({...expenseForm, category: ''});
+                        } else {
+                          setExpenseForm({...expenseForm, category: e.target.value});
+                        }
+                      }}
+                      required
+                    >
+                      <option value="" disabled>Select a category</option>
+                      {allAvailableCategories.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="custom" style={{ fontWeight: 'bold' }}>+ Add Custom Category</option>
+                    </select>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="New category name"
+                        value={expenseForm.category}
+                        onChange={e => setExpenseForm({...expenseForm, category: e.target.value})}
+                        autoFocus
+                        required
+                      />
+                      <button 
+                        type="button" 
+                        className="btn btn-outline" 
+                        onClick={() => {
+                          setShowCustomCategory(false);
+                          setExpenseForm({...expenseForm, category: ''});
+                        }}
+                        style={{ padding: '0 0.5rem' }}
+                        title="Cancel"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div style={{ flex: 1 }}>
                   <label className="form-label">Amount (PKR)</label>
@@ -335,7 +422,7 @@ export default function ExpensesPage() {
                   className="btn btn-primary"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Saving...' : 'Add Expense'}
+                  {isSubmitting ? 'Saving...' : (modalMode === 'edit' ? 'Save Changes' : 'Add Expense')}
                 </button>
               </div>
             </form>

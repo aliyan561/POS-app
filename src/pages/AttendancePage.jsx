@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { ClipboardCheck, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { ClipboardCheck, Calendar, Clock, AlertCircle, Download } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, getDaysInMonth } from 'date-fns';
 import { useAuth } from '../AuthContext';
 import './AttendancePage.css';
@@ -380,14 +380,104 @@ export default function AttendancePage() {
     );
   };
 
+  const handleExportCSV = () => {
+    let csvContent = '';
+    const BOM = '\uFEFF'; // For Excel to recognize UTF-8
+
+    if (viewMode === 'monthly') {
+      const [year, month] = filterMonth.split('-');
+      const dateInMonth = new Date(year, month - 1, 1);
+      const daysInMonth = getDaysInMonth(dateInMonth);
+      const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+      // Header row
+      const headers = ['Employee Name', 'Total Present', ...daysArray.map(d => `Day ${d}`), 'Base Salary', 'Penalties', 'Net Salary'];
+      csvContent += headers.join(',') + '\n';
+
+      // Data rows
+      employees.forEach(emp => {
+        const empLogs = monthlyData[emp.id] || {};
+        let totalPresent = 0;
+        let totalPenalties = 0;
+        const row = [emp.name];
+
+        const dayCells = daysArray.map(day => {
+          const dateStr = `${filterMonth}-${String(day).padStart(2, '0')}`;
+          const log = empLogs[dateStr];
+          if (log) {
+            totalPresent++;
+            if (log.penalty_applied > 0) {
+              totalPenalties += log.penalty_applied;
+              const hrs = log.hours_worked > 0 ? `${log.hours_worked}h` : 'In';
+              return `${hrs} (L)`;
+            }
+            return log.hours_worked > 0 ? `${log.hours_worked}h` : 'In';
+          } else if (dateStr < format(new Date(), 'yyyy-MM-dd')) {
+            return 'A';
+          }
+          return '-';
+        });
+
+        const baseSalary = emp.monthly_salary || 0;
+        const netSalary = Math.max(0, baseSalary - totalPenalties);
+
+        row.push(totalPresent, ...dayCells, baseSalary, totalPenalties, netSalary);
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+      });
+    } else {
+      // Daily view export
+      const headers = ['Employee Name', 'Role', 'Shift Start', 'Shift End', 'Status', 'Hours Worked', 'Log In Time', 'Late Penalty'];
+      csvContent += headers.join(',') + '\n';
+
+      employees.forEach(emp => {
+        const log = attendanceData[emp.id];
+        const status = log ? (log.hours_worked > 0 ? 'Present' : 'Working') : 'Absent';
+        const hours = log ? (log.hours_worked > 0 ? log.hours_worked : 0) : 0;
+        const logInTime = log?.log_in_time ? format(parseISO(log.log_in_time), 'hh:mm a') : '-';
+        const penalty = log?.penalty_applied || 0;
+
+        const row = [
+          emp.name,
+          emp.role || '-',
+          emp.shift_start_time ? emp.shift_start_time.substring(0, 5) : '-',
+          emp.shift_end_time ? emp.shift_end_time.substring(0, 5) : '-',
+          status,
+          hours,
+          logInTime,
+          penalty
+        ];
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+      });
+    }
+
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const filename = viewMode === 'monthly' 
+      ? `Attendance_${filterMonth}.csv` 
+      : `Attendance_${filterDate}.csv`;
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="attendance-layout">
       <div className="card flex-1" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="card-header" style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Attendance Tracker</span>
-          <div className="time-filters">
+          <div className="time-filters" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <button className={`filter-btn ${viewMode === 'daily' ? 'active' : ''}`} onClick={() => setViewMode('daily')}>Daily View</button>
             <button className={`filter-btn ${viewMode === 'monthly' ? 'active' : ''}`} onClick={() => setViewMode('monthly')}>Monthly Details</button>
+            <button 
+              className="btn btn-outline" 
+              onClick={handleExportCSV}
+              style={{ padding: '0.4rem 0.75rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              title="Export to Spreadsheet"
+            >
+              <Download size={16} /> Export
+            </button>
           </div>
         </div>
         

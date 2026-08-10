@@ -301,6 +301,45 @@ export default function PosPage() {
               <div style={{ borderTop: '1px dashed #000', margin: '15px 0' }}></div>
               <p style={{ textAlign: 'center', fontSize: '11px', lineHeight: '1.4' }}>Address: RC 8-5-2, Mohanlal Bhagwandas Building, Civil Hospital Road, Off M.A. Jinnah Road, Karachi</p>
             </div>
+
+            {/* ✂ Cut Line Separator */}
+            <div className="receipt-cut-line">
+              <span>✂ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑ ‑</span>
+            </div>
+
+            {/* Token Receipt (Patient Copy) */}
+            <div className="token-receipt">
+              <div className="receipt-header">
+                <h2>Prime Diagnostic Centre</h2>
+                <p><strong>Patient Token</strong></p>
+              </div>
+              <div className="receipt-details">
+                <p><strong>Receipt #:</strong> {receiptId || 'Pending'}</p>
+                <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
+                <p><strong>Patient:</strong> {patient.name || 'N/A'}</p>
+              </div>
+              <table className="receipt-items">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {basket.map((item, idx) => (
+                    <tr key={idx}>
+                      <td>{item.service_name}</td>
+                      <td>{item.quantity}</td>
+                      <td>Rs {Number(item.price_pkr) * item.quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="receipt-totals">
+                <h3>Total: <span>Rs {finalTotal}</span></h3>
+              </div>
+            </div>
           </div>
         </div>
       </div>
