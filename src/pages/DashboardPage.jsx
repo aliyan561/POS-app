@@ -522,128 +522,220 @@ export default function DashboardPage() {
           ) : filteredOrders.length === 0 ? (
             <div className="empty-state">No records found.</div>
           ) : (
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Receipt #</th>
-                    <th>Patient Name</th>
-                    <th>Visit Description</th>
-                    <th className="text-right">Order Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders.map(order => (
-                    <Fragment key={order.id}>
-                      <tr className="main-row">
-                        <td>
-                          <div className="date-cell">
-                            <Calendar size={14} className="text-muted" />
-                            {format(parseISO(order.order_date), 'MMM dd, yyyy - hh:mm a')}
-                          </div>
-                        </td>
-                        <td>
-                          <span style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>
-                            {order.id.substring(0, 8).toUpperCase()}
-                          </span>
-                        </td>
-                        <td>
-                          <button 
-                            className="patient-name-btn"
-                            onClick={() => handlePatientClick(order)}
-                          >
-                            {order.patients?.name || 'Unknown'}
-                          </button>
-                          {order.patients?.phone_number && (
-                            <div className="text-muted" style={{fontSize: '0.8rem', marginTop: '4px'}}>
-                              {order.patients.phone_number}
+            <>
+              {/* Desktop Table */}
+              <div className="table-responsive">
+                <table className="data-table mobile-cards">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Receipt #</th>
+                      <th>Patient Name</th>
+                      <th>Visit Description</th>
+                      <th className="text-right">Order Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.map(order => (
+                      <Fragment key={order.id}>
+                        <tr className="main-row">
+                          <td data-label="Date">
+                            <div className="date-cell">
+                              <Calendar size={14} className="text-muted" />
+                              {format(parseISO(order.order_date), 'MMM dd, yyyy - hh:mm a')}
                             </div>
-                          )}
-                        </td>
-                        <td className="text-muted max-w-xs truncate" title={order.patients?.visit_description}>
-                          {order.patients?.visit_description || '-'}
-                        </td>
-                        <td className="text-right font-semibold text-primary">
-                          Rs {order.final_total_pkr}
-                        </td>
-                      </tr>
-                      <tr className="expenses-row">
-                        <td colSpan="5">
-                          <div className="expenses-inline-container">
-                            <div className="expense-item">
-                              <span className="expense-item-label">Injections Cost:</span>
-                              <div className="expense-input-wrapper">
-                                <span>Rs</span>
-                                <input 
-                                  type="number" 
-                                  min="0"
-                                  value={order.injections_cost_pkr === 0 && !order.isEditing_injections ? '' : order.injections_cost_pkr}
-                                  placeholder="0"
-                                  onChange={(e) => {
-                                    let val = e.target.value;
-                                    if (Number(val) < 0) val = '0';
-                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, injections_cost_pkr: val, isEditing_injections: true } : o));
-                                  }}
-                                  onBlur={(e) => {
-                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_injections: false } : o));
-                                    handleExpenseChange(order.id, 'injections_cost_pkr', e.target.value);
-                                  }} 
-                                />
+                          </td>
+                          <td data-label="Receipt #">
+                            <span style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+                              {order.id.substring(0, 8).toUpperCase()}
+                            </span>
+                          </td>
+                          <td data-label="Patient Name">
+                            <button 
+                              className="patient-name-btn"
+                              onClick={() => handlePatientClick(order)}
+                            >
+                              {order.patients?.name || 'Unknown'}
+                            </button>
+                            {order.patients?.phone_number && (
+                              <div className="text-muted" style={{fontSize: '0.8rem', marginTop: '4px'}}>
+                                {order.patients.phone_number}
                               </div>
-                            </div>
-                            
-                            <div className="expense-item">
-                              <span className="expense-item-label">Commission:</span>
-                              <div className="expense-input-wrapper">
-                                <span>Rs</span>
-                                <input 
-                                  type="number" 
-                                  min="0"
-                                  value={order.commission_pkr === 0 && !order.isEditing_commission ? '' : order.commission_pkr}
-                                  placeholder="0"
-                                  onChange={(e) => {
-                                    let val = e.target.value;
-                                    if (Number(val) < 0) val = '0';
-                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, commission_pkr: val, isEditing_commission: true } : o));
-                                  }}
-                                  onBlur={(e) => {
-                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_commission: false } : o));
-                                    handleExpenseChange(order.id, 'commission_pkr', e.target.value);
-                                  }} 
-                                />
+                            )}
+                          </td>
+                          <td data-label="Visit Description" className="text-muted max-w-xs truncate" title={order.patients?.visit_description}>
+                            {order.patients?.visit_description || '-'}
+                          </td>
+                          <td data-label="Order Total" className="text-right font-semibold text-primary">
+                            Rs {order.final_total_pkr}
+                          </td>
+                        </tr>
+                        <tr className="expenses-row">
+                          <td colSpan="5">
+                            <div className="expenses-inline-container">
+                              <div className="expense-item">
+                                <span className="expense-item-label">Injections Cost:</span>
+                                <div className="expense-input-wrapper">
+                                  <span>Rs</span>
+                                  <input 
+                                    type="number" 
+                                    min="0"
+                                    value={order.injections_cost_pkr === 0 && !order.isEditing_injections ? '' : order.injections_cost_pkr}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      let val = e.target.value;
+                                      if (Number(val) < 0) val = '0';
+                                      setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, injections_cost_pkr: val, isEditing_injections: true } : o));
+                                    }}
+                                    onBlur={(e) => {
+                                      setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_injections: false } : o));
+                                      handleExpenseChange(order.id, 'injections_cost_pkr', e.target.value);
+                                    }} 
+                                  />
+                                </div>
                               </div>
-                            </div>
+                              
+                              <div className="expense-item">
+                                <span className="expense-item-label">Commission:</span>
+                                <div className="expense-input-wrapper">
+                                  <span>Rs</span>
+                                  <input 
+                                    type="number" 
+                                    min="0"
+                                    value={order.commission_pkr === 0 && !order.isEditing_commission ? '' : order.commission_pkr}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      let val = e.target.value;
+                                      if (Number(val) < 0) val = '0';
+                                      setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, commission_pkr: val, isEditing_commission: true } : o));
+                                    }}
+                                    onBlur={(e) => {
+                                      setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_commission: false } : o));
+                                      handleExpenseChange(order.id, 'commission_pkr', e.target.value);
+                                    }} 
+                                  />
+                                </div>
+                              </div>
 
-                            <div className="expense-item">
-                              <span className="expense-item-label">Reporting Cost:</span>
-                              <div className="expense-input-wrapper">
-                                <span>Rs</span>
-                                <input 
-                                  type="number" 
-                                  min="0"
-                                  value={order.reporting_cost_pkr === 0 && !order.isEditing_reporting ? '' : order.reporting_cost_pkr}
-                                  placeholder="0"
-                                  onChange={(e) => {
-                                    let val = e.target.value;
-                                    if (Number(val) < 0) val = '0';
-                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, reporting_cost_pkr: val, isEditing_reporting: true } : o));
-                                  }}
-                                  onBlur={(e) => {
-                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_reporting: false } : o));
-                                    handleExpenseChange(order.id, 'reporting_cost_pkr', e.target.value);
-                                  }} 
-                                />
+                              <div className="expense-item">
+                                <span className="expense-item-label">Reporting Cost:</span>
+                                <div className="expense-input-wrapper">
+                                  <span>Rs</span>
+                                  <input 
+                                    type="number" 
+                                    min="0"
+                                    value={order.reporting_cost_pkr === 0 && !order.isEditing_reporting ? '' : order.reporting_cost_pkr}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      let val = e.target.value;
+                                      if (Number(val) < 0) val = '0';
+                                      setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, reporting_cost_pkr: val, isEditing_reporting: true } : o));
+                                    }}
+                                    onBlur={(e) => {
+                                      setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_reporting: false } : o));
+                                      handleExpenseChange(order.id, 'reporting_cost_pkr', e.target.value);
+                                    }} 
+                                  />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                        </tr>
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="mobile-cards-list mobile-only">
+                {filteredOrders.map(order => (
+                  <div key={order.id} className="patient-card" onClick={() => handlePatientClick(order)}>
+                    <div className="patient-card-top">
+                      <div className="patient-card-info">
+                        <span className="patient-card-name">{order.patients?.name || 'Unknown'}</span>
+                        {order.patients?.phone_number && (
+                          <span className="patient-card-phone">{order.patients.phone_number}</span>
+                        )}
+                      </div>
+                      <div className="patient-card-amount">Rs {order.final_total_pkr?.toLocaleString()}</div>
+                    </div>
+                    <div className="patient-card-meta">
+                      <span className="patient-card-date">
+                        <Calendar size={12} />
+                        {format(parseISO(order.order_date), 'MMM dd, yyyy • hh:mm a')}
+                      </span>
+                      <span className="patient-card-receipt">#{order.id.substring(0, 8).toUpperCase()}</span>
+                    </div>
+                    {order.patients?.visit_description && (
+                      <div className="patient-card-desc">{order.patients.visit_description}</div>
+                    )}
+                    <div className="patient-card-expenses" onClick={(e) => e.stopPropagation()}>
+                      <div className="mobile-expense-field">
+                        <label>Injections</label>
+                        <div className="mobile-expense-input">
+                          <span>Rs</span>
+                          <input 
+                            type="number" min="0"
+                            value={order.injections_cost_pkr === 0 && !order.isEditing_injections ? '' : order.injections_cost_pkr}
+                            placeholder="0"
+                            onChange={(e) => {
+                              let val = e.target.value;
+                              if (Number(val) < 0) val = '0';
+                              setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, injections_cost_pkr: val, isEditing_injections: true } : o));
+                            }}
+                            onBlur={(e) => {
+                              setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_injections: false } : o));
+                              handleExpenseChange(order.id, 'injections_cost_pkr', e.target.value);
+                            }} 
+                          />
+                        </div>
+                      </div>
+                      <div className="mobile-expense-field">
+                        <label>Commission</label>
+                        <div className="mobile-expense-input">
+                          <span>Rs</span>
+                          <input 
+                            type="number" min="0"
+                            value={order.commission_pkr === 0 && !order.isEditing_commission ? '' : order.commission_pkr}
+                            placeholder="0"
+                            onChange={(e) => {
+                              let val = e.target.value;
+                              if (Number(val) < 0) val = '0';
+                              setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, commission_pkr: val, isEditing_commission: true } : o));
+                            }}
+                            onBlur={(e) => {
+                              setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_commission: false } : o));
+                              handleExpenseChange(order.id, 'commission_pkr', e.target.value);
+                            }} 
+                          />
+                        </div>
+                      </div>
+                      <div className="mobile-expense-field">
+                        <label>Reporting</label>
+                        <div className="mobile-expense-input">
+                          <span>Rs</span>
+                          <input 
+                            type="number" min="0"
+                            value={order.reporting_cost_pkr === 0 && !order.isEditing_reporting ? '' : order.reporting_cost_pkr}
+                            placeholder="0"
+                            onChange={(e) => {
+                              let val = e.target.value;
+                              if (Number(val) < 0) val = '0';
+                              setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, reporting_cost_pkr: val, isEditing_reporting: true } : o));
+                            }}
+                            onBlur={(e) => {
+                              setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_reporting: false } : o));
+                              handleExpenseChange(order.id, 'reporting_cost_pkr', e.target.value);
+                            }} 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>

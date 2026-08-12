@@ -538,7 +538,7 @@ export default function AttendancePage() {
             ) : viewMode === 'monthly' ? (
               renderMonthlyMatrix()
             ) : (
-              <table className="data-table">
+              <table className="data-table mobile-cards">
                 <thead>
                   <tr>
                     <th>Employee Name</th>
@@ -555,13 +555,13 @@ export default function AttendancePage() {
 
                     return (
                       <tr key={emp.id} style={{ backgroundColor: isPresent ? 'var(--bg-main)' : 'transparent' }}>
-                        <td className="font-medium text-main">{emp.name}</td>
-                        <td>
+                        <td data-label="Employee Name" className="font-medium text-main">{emp.name}</td>
+                        <td data-label="Role">
                           <span className="badge-category cat-utilities">
                             {emp.role}
                           </span>
                         </td>
-                        <td>
+                        <td data-label="Shift Details">
                            <div style={{ fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                               <span>
                                 <Clock size={12} className="text-muted" style={{ display: 'inline', marginRight: '4px' }}/>
@@ -574,7 +574,7 @@ export default function AttendancePage() {
                               )}
                            </div>
                         </td>
-                        <td>
+                        <td data-label="Status">
                           {isPresent ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                               <span className="text-success font-semibold" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -596,7 +596,7 @@ export default function AttendancePage() {
                             <span className="text-danger" style={{ opacity: 0.7 }}>Absent (Not Logged)</span>
                           )}
                         </td>
-                        <td className="text-right">
+                        <td data-label="Action" className="text-right">
                           {!isPresent ? (
                             <button 
                               className="btn btn-primary" 

@@ -282,3 +282,134 @@ input, textarea {
 .skeleton-w-20 { width: 20%; }
 .skeleton-w-30 { width: 30%; }
 .skeleton-w-40 { width: 40%; }
+
+/* Responsive Display Utilities */
+@media (max-width: 991px) {
+  .d-lg-none { display: block !important; }
+}
+@media (min-width: 992px) {
+  .d-lg-none { display: none !important; }
+}
+@media (max-width: 767px) {
+  .d-md-none { display: block !important; }
+  .d-none.d-md-block { display: none !important; }
+  
+  .user-email-text {
+    display: none;
+  }
+}
+@media (min-width: 768px) {
+  .d-md-none { display: none !important; }
+  .d-none.d-md-block { display: block !important; }
+}
+
+/* Mobile Sidebar Styles */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1040;
+}
+
+.menu-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+}
+
+.mobile-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+@media (max-width: 991px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    height: 100vh;
+    z-index: 1050;
+    width: 280px;
+    transition: left 0.3s ease-in-out;
+    box-shadow: var(--shadow-md);
+  }
+  
+  .sidebar.open {
+    left: 0;
+  }
+  
+  .main-content {
+    width: 100%;
+  }
+  
+  .page-content {
+    padding: 1rem;
+  }
+  
+  .page-header {
+    padding: 1rem;
+  }
+}
+
+/* Global Responsive Tables */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  table.mobile-cards {
+    border: 0;
+  }
+  
+  table.mobile-cards thead {
+    display: none;
+  }
+  
+  table.mobile-cards tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-color: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  table.mobile-cards td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: right;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 0.75rem 1rem !important;
+  }
+  
+  table.mobile-cards td:last-child {
+    border-bottom: 0 !important;
+  }
+  
+  table.mobile-cards td::before {
+    content: attr(data-label);
+    float: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+  
+  table.mobile-cards .expenses-row td {
+    display: block;
+    text-align: left;
+  }
+  
+  table.mobile-cards .expenses-row td::before {
+    display: none;
+  }
+}

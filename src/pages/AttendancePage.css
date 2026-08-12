@@ -18,6 +18,7 @@
 
 .attendance-table-container {
   overflow-y: auto;
+  overflow-x: auto;
   flex: 1;
 }
 
@@ -176,6 +177,37 @@
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px dashed var(--border);
+}
+
+.breakdown-.time-input-group label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+/* Responsive Attendance */
+@media (max-width: 767px) {
+  .attendance-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .attendance-filter-input {
+    max-width: 100%;
+  }
+  
+  .card-header.flex-between {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .log-attendance-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .breakdown-title {

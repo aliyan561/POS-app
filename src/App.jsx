@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Wallet, LogOut, BarChart3, Users, ClipboardList, Bell } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Wallet, LogOut, BarChart3, Users, ClipboardList, Bell, Menu, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import PosPage from './pages/PosPage';
@@ -104,6 +104,7 @@ function AdminNotifications() {
 
 function App() {
   const { session, user, role, signOut } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (!session) {
     return <LoginPage />;
@@ -112,10 +113,18 @@ function App() {
   return (
     <Router>
       <div className="app-container">
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && (
+          <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
+        )}
+
         {/* Sidebar */}
-        <aside className="sidebar no-print">
-          <div className="sidebar-logo">
+        <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+          <div className="sidebar-logo flex-between">
             <img src={logo} alt="Prime Diagnostic Centre" />
+            <button className="mobile-close-btn d-lg-none" onClick={() => setSidebarOpen(false)}>
+              <X size={24} />
+            </button>
           </div>
           
           <nav className="nav-links">
@@ -171,9 +180,15 @@ function App() {
         {/* Main Content Area */}
         <main className="main-content">
           <header className="page-header no-print">
-            <h1>Prime Diagnostic Centre POS</h1>
+            <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button className="menu-toggle-btn d-lg-none" onClick={() => setSidebarOpen(true)}>
+                <Menu size={24} />
+              </button>
+              <h1 className="d-none d-md-block">Prime Diagnostic Centre POS</h1>
+              <h1 className="d-md-none" style={{ fontSize: '1.25rem' }}>PDC POS</h1>
+            </div>
             <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              <span className="user-email-text" style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
                 Logged in as <strong>{role || 'User'}</strong> ({user?.email})
               </span>
               {role === 'admin' && <AdminNotifications />}

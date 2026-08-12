@@ -258,7 +258,7 @@ export default function AnalyticsPage() {
     <div className="analytics-layout">
       {/* Top Services Section */}
       <div className="mb-4">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div className="top-services-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'var(--text-main)' }}>Top 4 Services Earned</h3>
           <div className="time-filters">
             <button 
@@ -276,7 +276,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
         
-        <div className="stats-grid">
+        <div className="stats-grid top-services-grid">
           {topServices.map((ts, i) => (
             <div key={ts.id} className="stat-card">
               <div className="stat-details">

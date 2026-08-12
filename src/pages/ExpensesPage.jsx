@@ -269,7 +269,7 @@ export default function ExpensesPage() {
             <div className="empty-state">No expenses recorded for this timeframe.</div>
           ) : (
             <div className="table-responsive">
-              <table className="data-table">
+              <table className="data-table mobile-cards">
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -282,24 +282,24 @@ export default function ExpensesPage() {
                 <tbody>
                   {filteredExpenses.map(exp => (
                     <tr key={exp.id}>
-                      <td>
+                      <td data-label="Date">
                         <div className="date-cell">
                           <Calendar size={14} className="text-muted" />
                           {format(parseISO(exp.expense_date), 'MMM dd, yyyy - hh:mm a')}
                         </div>
                       </td>
-                      <td className="font-medium text-main">{exp.title}</td>
-                      <td>
+                      <td data-label="Title" className="font-medium text-main">{exp.title}</td>
+                      <td data-label="Category">
                         <span className={`badge-category cat-${exp.category.toLowerCase().replace(/\s+/g, '-')}`}>
                           {exp.category}
                         </span>
                       </td>
-                      <td className="text-right font-semibold text-danger">
+                      <td data-label="Amount" className="text-right font-semibold text-danger">
                         - Rs {exp.amount_pkr.toLocaleString()}
                       </td>
-                      <td className="text-right">
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem' }} onClick={() => handleEditClick(exp)}>
-                          <Edit size={14} />
+                      <td data-label="Actions" className="text-right">
+                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem' }} onClick={() => handleEditClick(exp)} title="Edit">
+                          <Edit size={16} />
                         </button>
                       </td>
                     </tr>

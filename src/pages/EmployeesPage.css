@@ -74,7 +74,7 @@
 
 .employees-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 1.5rem;
 }
 
@@ -124,3 +124,26 @@
   color: var(--danger);
 }
 
+/* Responsive Employees */
+@media (max-width: 767px) {
+  .employee-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .employee-details {
+    grid-template-columns: 1fr;
+  }
+  
+  .card-header.flex-between {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .btn.btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+}

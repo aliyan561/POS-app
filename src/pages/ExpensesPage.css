@@ -75,3 +75,30 @@
 .text-main {
   color: var(--text-main);
 }
+
+/* Responsive Expenses */
+@media (max-width: 767px) {
+  .expenses-controls-advanced {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .card-header.flex-between {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .add-expense-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .glass-modal-content {
+    width: 95%;
+    margin: 10px;
+    max-height: 95vh;
+    display: flex;
+    flex-direction: column;
+  }
+}
