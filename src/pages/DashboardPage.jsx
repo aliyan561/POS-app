@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { supabase } from '../supabase';
 import { TrendingUp, Users, Calendar, Search, X, Filter, Edit, Check } from 'lucide-react';
 import './DashboardPage.css';
@@ -6,7 +6,7 @@ import { format, parseISO, isWithinInterval, startOfDay, endOfDay, isToday, isTh
 import { useAuth } from '../AuthContext';
 
 export default function DashboardPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const [allOrders, setAllOrders] = useState([]);
   const [servicesList, setServicesList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,8 +33,17 @@ export default function DashboardPage() {
     gender: '',
     referred_by: '',
     final_total_pkr: 0,
-    discount_applied_pkr: 0
+    discount_applied_pkr: 0,
+    injections_cost_pkr: 0,
+    commission_pkr: 0,
+    reporting_cost_pkr: 0
   });
+
+  // Deletion State
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpInput, setOtpInput] = useState('');
+  const [isOtpSubmitting, setIsOtpSubmitting] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -51,6 +60,9 @@ export default function DashboardPage() {
         order_date,
         final_total_pkr,
         discount_applied_pkr,
+        injections_cost_pkr,
+        commission_pkr,
+        reporting_cost_pkr,
         patients (
           id,
           name,
@@ -157,7 +169,10 @@ export default function DashboardPage() {
       gender: order.patients?.gender || '',
       referred_by: order.patients?.referred_by || '',
       final_total_pkr: order.final_total_pkr || 0,
-      discount_applied_pkr: order.discount_applied_pkr || 0
+      discount_applied_pkr: order.discount_applied_pkr || 0,
+      injections_cost_pkr: order.injections_cost_pkr || 0,
+      commission_pkr: order.commission_pkr || 0,
+      reporting_cost_pkr: order.reporting_cost_pkr || 0
     });
     setIsModalLoading(true);
     
@@ -203,7 +218,10 @@ export default function DashboardPage() {
 
       const orderUpdate = {
         final_total_pkr: editForm.final_total_pkr,
-        discount_applied_pkr: editForm.discount_applied_pkr
+        discount_applied_pkr: editForm.discount_applied_pkr,
+        injections_cost_pkr: editForm.injections_cost_pkr,
+        commission_pkr: editForm.commission_pkr,
+        reporting_cost_pkr: editForm.reporting_cost_pkr
       };
 
       const { error: patientError } = await supabase
@@ -249,6 +267,113 @@ export default function DashboardPage() {
     } catch (err) {
       console.error("Error updating record:", err);
       alert("Failed to update record.");
+    }
+  };
+
+  const handleExpenseChange = async (orderId, field, value) => {
+    const numValue = Number(value) || 0;
+    
+    // Update database directly (state is already optimistically updated via onChange)
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ [field]: numValue })
+        .eq('id', orderId);
+        
+      if (error) throw error;
+      
+      // Update state to strict number after successful save
+      setAllOrders(prev => prev.map(o => {
+        if (o.id === orderId) {
+          return { ...o, [field]: numValue };
+        }
+        return o;
+      }));
+    } catch (err) {
+      console.error("Failed to update expense:", err);
+      alert("Failed to save expense.");
+    }
+  };
+
+  const handleDeleteClick = async () => {
+    if (role === 'admin') {
+      if (window.confirm("Are you sure you want to permanently delete this patient and their order?")) {
+        await directDelete();
+      }
+    } else {
+      // Receptionist: Generate request
+      generateOTPRequest();
+    }
+  };
+
+  const directDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_delete_order', {
+        p_order_id: selectedOrder.id
+      });
+      if (error) throw error;
+      
+      setAllOrders(prev => prev.filter(o => o.id !== selectedOrder.id));
+      closeModal();
+    } catch (err) {
+      console.error("Direct delete failed:", err);
+      alert("Failed to delete record.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const generateOTPRequest = async () => {
+    setIsDeleting(true);
+    try {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const { error } = await supabase
+        .from('deletion_requests')
+        .insert([{
+          order_id: selectedOrder.id,
+          patient_name: selectedOrder.patients?.name || 'Unknown',
+          otp_code: otp,
+          requested_by: user.id
+        }]);
+        
+      if (error) throw error;
+      
+      setShowOtpModal(true);
+    } catch (err) {
+      console.error("Failed to generate OTP request:", err);
+      alert("Failed to request deletion authorization.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const submitOtp = async () => {
+    if (!otpInput) return;
+    setIsOtpSubmitting(true);
+    try {
+      const { data, error } = await supabase.rpc('delete_order_with_otp', {
+        p_order_id: selectedOrder.id,
+        p_otp_code: otpInput
+      });
+      
+      if (error) {
+        if (error.message.includes('Invalid or expired OTP')) {
+          alert('Invalid or expired OTP. Please check with the Admin.');
+        } else {
+          throw error;
+        }
+      } else {
+        setAllOrders(prev => prev.filter(o => o.id !== selectedOrder.id));
+        setShowOtpModal(false);
+        setOtpInput('');
+        closeModal();
+      }
+    } catch (err) {
+      console.error("OTP deletion failed:", err);
+      alert("Failed to delete record.");
+    } finally {
+      setIsOtpSubmitting(false);
     }
   };
 
@@ -410,38 +535,111 @@ export default function DashboardPage() {
                 </thead>
                 <tbody>
                   {filteredOrders.map(order => (
-                    <tr key={order.id}>
-                      <td>
-                        <div className="date-cell">
-                          <Calendar size={14} className="text-muted" />
-                          {format(parseISO(order.order_date), 'MMM dd, yyyy - hh:mm a')}
-                        </div>
-                      </td>
-                      <td>
-                        <span style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>
-                          {order.id.substring(0, 8).toUpperCase()}
-                        </span>
-                      </td>
-                      <td>
-                        <button 
-                          className="patient-name-btn"
-                          onClick={() => handlePatientClick(order)}
-                        >
-                          {order.patients?.name || 'Unknown'}
-                        </button>
-                        {order.patients?.phone_number && (
-                          <div className="text-muted" style={{fontSize: '0.8rem', marginTop: '4px'}}>
-                            {order.patients.phone_number}
+                    <Fragment key={order.id}>
+                      <tr className="main-row">
+                        <td>
+                          <div className="date-cell">
+                            <Calendar size={14} className="text-muted" />
+                            {format(parseISO(order.order_date), 'MMM dd, yyyy - hh:mm a')}
                           </div>
-                        )}
-                      </td>
-                      <td className="text-muted max-w-xs truncate" title={order.patients?.visit_description}>
-                        {order.patients?.visit_description || '-'}
-                      </td>
-                      <td className="text-right font-semibold text-primary">
-                        Rs {order.final_total_pkr}
-                      </td>
-                    </tr>
+                        </td>
+                        <td>
+                          <span style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+                            {order.id.substring(0, 8).toUpperCase()}
+                          </span>
+                        </td>
+                        <td>
+                          <button 
+                            className="patient-name-btn"
+                            onClick={() => handlePatientClick(order)}
+                          >
+                            {order.patients?.name || 'Unknown'}
+                          </button>
+                          {order.patients?.phone_number && (
+                            <div className="text-muted" style={{fontSize: '0.8rem', marginTop: '4px'}}>
+                              {order.patients.phone_number}
+                            </div>
+                          )}
+                        </td>
+                        <td className="text-muted max-w-xs truncate" title={order.patients?.visit_description}>
+                          {order.patients?.visit_description || '-'}
+                        </td>
+                        <td className="text-right font-semibold text-primary">
+                          Rs {order.final_total_pkr}
+                        </td>
+                      </tr>
+                      <tr className="expenses-row">
+                        <td colSpan="5">
+                          <div className="expenses-inline-container">
+                            <div className="expense-item">
+                              <span className="expense-item-label">Injections Cost:</span>
+                              <div className="expense-input-wrapper">
+                                <span>Rs</span>
+                                <input 
+                                  type="number" 
+                                  min="0"
+                                  value={order.injections_cost_pkr === 0 && !order.isEditing_injections ? '' : order.injections_cost_pkr}
+                                  placeholder="0"
+                                  onChange={(e) => {
+                                    let val = e.target.value;
+                                    if (Number(val) < 0) val = '0';
+                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, injections_cost_pkr: val, isEditing_injections: true } : o));
+                                  }}
+                                  onBlur={(e) => {
+                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_injections: false } : o));
+                                    handleExpenseChange(order.id, 'injections_cost_pkr', e.target.value);
+                                  }} 
+                                />
+                              </div>
+                            </div>
+                            
+                            <div className="expense-item">
+                              <span className="expense-item-label">Commission:</span>
+                              <div className="expense-input-wrapper">
+                                <span>Rs</span>
+                                <input 
+                                  type="number" 
+                                  min="0"
+                                  value={order.commission_pkr === 0 && !order.isEditing_commission ? '' : order.commission_pkr}
+                                  placeholder="0"
+                                  onChange={(e) => {
+                                    let val = e.target.value;
+                                    if (Number(val) < 0) val = '0';
+                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, commission_pkr: val, isEditing_commission: true } : o));
+                                  }}
+                                  onBlur={(e) => {
+                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_commission: false } : o));
+                                    handleExpenseChange(order.id, 'commission_pkr', e.target.value);
+                                  }} 
+                                />
+                              </div>
+                            </div>
+
+                            <div className="expense-item">
+                              <span className="expense-item-label">Reporting Cost:</span>
+                              <div className="expense-input-wrapper">
+                                <span>Rs</span>
+                                <input 
+                                  type="number" 
+                                  min="0"
+                                  value={order.reporting_cost_pkr === 0 && !order.isEditing_reporting ? '' : order.reporting_cost_pkr}
+                                  placeholder="0"
+                                  onChange={(e) => {
+                                    let val = e.target.value;
+                                    if (Number(val) < 0) val = '0';
+                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, reporting_cost_pkr: val, isEditing_reporting: true } : o));
+                                  }}
+                                  onBlur={(e) => {
+                                    setAllOrders(prev => prev.map(o => o.id === order.id ? { ...o, isEditing_reporting: false } : o));
+                                    handleExpenseChange(order.id, 'reporting_cost_pkr', e.target.value);
+                                  }} 
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -461,21 +659,33 @@ export default function DashboardPage() {
             
             <div className="modal-body">
               <div className="patient-summary" style={{ position: 'relative' }}>
-                {role === 'admin' && (
-                  <button 
-                    className="btn btn-sm btn-outline" 
-                    style={{ position: 'absolute', top: 0, right: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
-                    onClick={() => {
-                      if (isEditing) {
-                        handleSaveEdit();
-                      } else {
-                        setIsEditing(true);
-                      }
-                    }}
-                  >
-                    {isEditing ? <><Check size={14} /> Save</> : <><Edit size={14} /> Edit</>}
-                  </button>
-                )}
+                <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', gap: '8px' }}>
+                  {role === 'admin' && (
+                    <button 
+                      className="btn btn-sm btn-outline" 
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                      onClick={() => {
+                        if (isEditing) {
+                          handleSaveEdit();
+                        } else {
+                          setIsEditing(true);
+                        }
+                      }}
+                    >
+                      {isEditing ? <><Check size={14} /> Save</> : <><Edit size={14} /> Edit</>}
+                    </button>
+                  )}
+                  {!isEditing && (
+                    <button 
+                      className="btn btn-sm btn-outline" 
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                      onClick={handleDeleteClick}
+                      disabled={isDeleting}
+                    >
+                      <X size={14} /> {isDeleting ? 'Processing...' : 'Delete'}
+                    </button>
+                  )}
+                </div>
                 
                 {isEditing ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '30px' }}>
@@ -584,6 +794,36 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OTP Modal for Receptionist */}
+      {showOtpModal && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+          <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center', padding: '2rem' }}>
+            <h2 style={{ marginBottom: '1rem', color: 'var(--danger)' }}>Authorization Required</h2>
+            <p className="text-muted" style={{ marginBottom: '1.5rem' }}>
+              A deletion request has been sent. Please ask the Admin for the 6-digit Authorization Code to proceed.
+            </p>
+            <input 
+              type="text" 
+              className="form-control" 
+              placeholder="Enter 6-digit OTP" 
+              value={otpInput}
+              onChange={e => setOtpInput(e.target.value)}
+              style={{ fontSize: '1.25rem', letterSpacing: '0.2em', textAlign: 'center', marginBottom: '1.5rem' }}
+              maxLength={6}
+            />
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button className="btn btn-outline" onClick={() => setShowOtpModal(false)} disabled={isOtpSubmitting}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" style={{ backgroundColor: 'var(--danger)' }} onClick={submitOtp} disabled={isOtpSubmitting || otpInput.length < 6}>
+                {isOtpSubmitting ? 'Verifying...' : 'Confirm Deletion'}
+              </button>
             </div>
           </div>
         </div>

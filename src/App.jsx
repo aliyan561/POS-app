@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Wallet, LogOut, BarChart3, Users, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Wallet, LogOut, BarChart3, Users, ClipboardList, Bell } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from './supabase';
 import PosPage from './pages/PosPage';
 import DashboardPage from './pages/DashboardPage';
 import ExpensesPage from './pages/ExpensesPage';
@@ -9,6 +11,96 @@ import EmployeesPage from './pages/EmployeesPage';
 import AttendancePage from './pages/AttendancePage';
 import logo from '../assets/logo-transparent-bg.png';
 import { useAuth } from './AuthContext';
+
+function AdminNotifications() {
+  const [requests, setRequests] = useState([]);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    fetchRequests();
+    
+    const subscription = supabase
+      .channel('public:deletion_requests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deletion_requests' }, payload => {
+        fetchRequests();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, []);
+
+  const fetchRequests = async () => {
+    const { data, error } = await supabase
+      .from('deletion_requests')
+      .select('*')
+      .eq('is_used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false });
+      
+    if (data) setRequests(data);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button 
+        className="btn btn-outline" 
+        style={{ position: 'relative', padding: '0.35rem 0.5rem', borderColor: requests.length > 0 ? 'var(--danger)' : 'var(--border)' }}
+        onClick={() => setIsOpen(!isOpen)}
+        title="Deletion Requests"
+      >
+        <Bell size={18} color={requests.length > 0 ? 'var(--danger)' : 'var(--text-main)'} />
+        {requests.length > 0 && (
+          <span style={{ 
+            position: 'absolute', top: '-5px', right: '-5px', 
+            backgroundColor: 'var(--danger)', color: 'white', 
+            borderRadius: '50%', width: '18px', height: '18px', 
+            fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold'
+          }}>
+            {requests.length}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div style={{ 
+          position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem',
+          backgroundColor: 'var(--surface)', border: '1px solid var(--border)', 
+          borderRadius: 'var(--radius)', width: '300px', boxShadow: 'var(--shadow-md)', zIndex: 1000,
+          overflow: 'hidden'
+        }}>
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', fontWeight: '600', backgroundColor: 'var(--secondary)' }}>
+            Deletion Requests
+          </div>
+          <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+            {requests.length === 0 ? (
+              <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                No active requests.
+              </div>
+            ) : (
+              requests.map(req => (
+                <div key={req.id} style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+                    <strong>{req.patient_name}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      OTP Code:
+                    </span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--danger)', letterSpacing: '0.1em' }}>
+                      {req.otp_code}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function App() {
   const { session, user, role, signOut } = useAuth();
@@ -84,6 +176,7 @@ function App() {
               <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
                 Logged in as <strong>{role || 'User'}</strong> ({user?.email})
               </span>
+              {role === 'admin' && <AdminNotifications />}
               <button 
                 onClick={signOut}
                 className="btn btn-outline" 
