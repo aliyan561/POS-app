@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { supabase } from '../supabase';
-import { TrendingUp, Users, Calendar, Search, X, Filter, Edit, Check } from 'lucide-react';
+import { TrendingUp, Users, Calendar, Search, X, Filter, Edit, Check, Printer } from 'lucide-react';
 import './DashboardPage.css';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, isToday, isThisWeek } from 'date-fns';
 import { useAuth } from '../AuthContext';
+import logoImg from '../../assets/with-text-logo.png';
 
 export default function DashboardPage() {
   const { role, user } = useAuth();
@@ -38,6 +39,10 @@ export default function DashboardPage() {
     commission_pkr: 0,
     reporting_cost_pkr: 0
   });
+
+  // Reprint State
+  const [reprintMode, setReprintMode] = useState(null); // null, 'original', 'token'
+  const [isReprinting, setIsReprinting] = useState(false);
 
   // Deletion State
   const [isDeleting, setIsDeleting] = useState(false);
@@ -292,6 +297,28 @@ export default function DashboardPage() {
     } catch (err) {
       console.error("Failed to update expense:", err);
       alert("Failed to save expense.");
+    }
+  };
+
+  const handleReprintReceipt = async () => {
+    if (!selectedOrder || orderItems.length === 0) return;
+    setIsReprinting(true);
+
+    try {
+      // Step 1: Print Customer Slip (original)
+      setReprintMode('original');
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      window.print();
+
+      // Step 2: Ask to print PDC Slip
+      if (window.confirm("Customer slip printed. Click OK to print PDC Slip.")) {
+        setReprintMode('token');
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        window.print();
+      }
+    } finally {
+      setReprintMode(null);
+      setIsReprinting(false);
     }
   };
 
@@ -768,14 +795,24 @@ export default function DashboardPage() {
                     </button>
                   )}
                   {!isEditing && (
-                    <button 
-                      className="btn btn-sm btn-outline" 
-                      style={{ display: 'flex', alignItems: 'center', gap: '4px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
-                      onClick={handleDeleteClick}
-                      disabled={isDeleting}
-                    >
-                      <X size={14} /> {isDeleting ? 'Processing...' : 'Delete'}
-                    </button>
+                    <>
+                      <button 
+                        className="btn btn-sm btn-outline reprint-btn" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                        onClick={handleReprintReceipt}
+                        disabled={isReprinting || isModalLoading || orderItems.length === 0}
+                      >
+                        <Printer size={14} /> {isReprinting ? 'Printing...' : 'Reprint'}
+                      </button>
+                      <button 
+                        className="btn btn-sm btn-outline" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                        onClick={handleDeleteClick}
+                        disabled={isDeleting}
+                      >
+                        <X size={14} /> {isDeleting ? 'Processing...' : 'Delete'}
+                      </button>
+                    </>
                   )}
                 </div>
                 
@@ -889,6 +926,96 @@ export default function DashboardPage() {
 
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Hidden Reprint Receipt (visible only during print) */}
+      {reprintMode && selectedOrder && (
+        <div id="reprint-receipt">
+          {/* Customer Slip */}
+          {reprintMode === 'original' && (
+            <>
+              <div className="receipt-header">
+                <img src={logoImg} alt="Prime Diagnostic Centre Logo" className="receipt-logo" style={{ margin: '0 auto 10px auto', display: 'block', maxWidth: '100%' }} />
+                <h2>Prime Diagnostic Centre</h2>
+                <p>0314-1117447</p>
+                <p><strong>Customer Slip</strong></p>
+              </div>
+              <div className="receipt-details">
+                <p><strong>Receipt #:</strong> {selectedOrder.id.substring(0, 8).toUpperCase()}</p>
+                <p><strong>Date:</strong> {format(parseISO(selectedOrder.order_date), 'MMM dd, yyyy - hh:mm a')}</p>
+                <p><strong>Patient:</strong> {selectedOrder.patients?.name || 'N/A'}</p>
+                {(selectedOrder.patients?.age || selectedOrder.patients?.gender) && (
+                  <p>
+                    {selectedOrder.patients?.age && <span><strong>Age:</strong> {selectedOrder.patients.age} &nbsp;&nbsp;</span>}
+                    {selectedOrder.patients?.gender && <span><strong>Gender:</strong> {selectedOrder.patients.gender}</span>}
+                  </p>
+                )}
+                {selectedOrder.patients?.referred_by && <p><strong>Referred by:</strong> {selectedOrder.patients.referred_by}</p>}
+                {selectedOrder.patients?.phone_number && <p><strong>Phone:</strong> {selectedOrder.patients.phone_number}</p>}
+              </div>
+              <table className="receipt-items">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderItems.map((item, idx) => (
+                    <tr key={idx}>
+                      <td>{item.services.service_name}</td>
+                      <td>{item.quantity}</td>
+                      <td>Rs {item.services.price_pkr * item.quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="receipt-totals">
+                <p>Subtotal: <span>Rs {Number(selectedOrder.final_total_pkr) + Number(selectedOrder.discount_applied_pkr)}</span></p>
+                <p>Discount: <span>Rs {selectedOrder.discount_applied_pkr}</span></p>
+                <h3>Total: <span>Rs {selectedOrder.final_total_pkr}</span></h3>
+              </div>
+              <div className="receipt-footer">
+                <p>Please collect your reports between 3:30 PM to 5:30 PM on reporting date</p>
+                <p>We wish you good health</p>
+                <div style={{ borderTop: '1px dashed #000', margin: '15px 0' }}></div>
+                <p style={{ textAlign: 'center', fontSize: '11px', lineHeight: '1.4' }}>Address: RC 8-5-2, Mohanlal Bhagwandas Building, Civil Hospital Road, Off M.A. Jinnah Road, Karachi</p>
+              </div>
+            </>
+          )}
+
+          {/* PDC Slip */}
+          {reprintMode === 'token' && (
+            <div className="token-receipt">
+              <div className="receipt-header">
+                <h2>Prime Diagnostic Centre</h2>
+                <p><strong>PDC Slip</strong></p>
+              </div>
+              <div className="receipt-details">
+                <p><strong>Receipt #:</strong> {selectedOrder.id.substring(0, 8).toUpperCase()}</p>
+                <p><strong>Date:</strong> {format(parseISO(selectedOrder.order_date), 'MMM dd, yyyy - hh:mm a')}</p>
+                <p><strong>Patient:</strong> {selectedOrder.patients?.name || 'N/A'}</p>
+              </div>
+              <table className="receipt-items">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderItems.map((item, idx) => (
+                    <tr key={idx}>
+                      <td>{item.services.service_name}</td>
+                      <td>{item.quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

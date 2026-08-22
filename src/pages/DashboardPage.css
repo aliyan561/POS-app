@@ -582,3 +582,122 @@
     padding-bottom: 0;
   }
 }
+
+/* Reprint Receipt - Hidden on screen */
+#reprint-receipt {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 100%;
+  max-width: 300px;
+  background-color: white;
+  padding: 15px;
+  font-family: monospace;
+  font-size: 12px;
+  color: black;
+}
+
+/* Reprint Button */
+.reprint-btn:hover {
+  background-color: var(--primary-light) !important;
+}
+
+/* Receipt Styles (reused from PosPage for reprint) */
+.dashboard-layout .receipt-header {
+  text-align: center;
+  margin-bottom: 15px;
+  border-bottom: 1px dashed #000;
+  padding-bottom: 10px;
+}
+
+.dashboard-layout .receipt-logo {
+  max-width: 100px;
+  margin-bottom: 10px;
+}
+
+.dashboard-layout .receipt-details {
+  margin-bottom: 15px;
+}
+
+.dashboard-layout .receipt-details p {
+  margin: 3px 0;
+}
+
+.dashboard-layout .receipt-items {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 15px;
+}
+
+.dashboard-layout .receipt-items th,
+.dashboard-layout .receipt-items td {
+  text-align: left;
+  padding: 5px 0;
+  border-bottom: 1px dashed #ccc;
+}
+
+.dashboard-layout .receipt-items th:last-child,
+.dashboard-layout .receipt-items td:last-child {
+  text-align: right;
+}
+
+.dashboard-layout .receipt-totals {
+  text-align: right;
+  margin-bottom: 20px;
+  border-top: 1px dashed #000;
+  padding-top: 10px;
+}
+
+.dashboard-layout .receipt-totals p {
+  margin: 5px 0;
+}
+
+.dashboard-layout .receipt-totals h3 {
+  margin: 10px 0 0 0;
+  font-size: 16px;
+}
+
+.dashboard-layout .receipt-footer {
+  text-align: center;
+  font-size: 10px;
+  margin-top: 20px;
+}
+
+.dashboard-layout .token-receipt {
+  padding-top: 10px;
+}
+
+.dashboard-layout .token-receipt .receipt-header {
+  border-bottom: 1px dashed #000;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+/* Print styles for Dashboard Reprint */
+@media print {
+  @page {
+    margin: 0;
+  }
+  
+  /* Hide everything */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Show only the reprint receipt */
+  #reprint-receipt, #reprint-receipt * {
+    visibility: visible;
+  }
+  
+  #reprint-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 2mm;
+    box-shadow: none;
+    border: none;
+  }
+}
