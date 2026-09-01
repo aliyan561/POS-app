@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabase';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Plus, X, Edit } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, Plus, X, Edit, Users, Award, Tag } from 'lucide-react';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, isToday, isThisWeek } from 'date-fns';
 import './ExpensesPage.css';
 
 export default function ExpensesPage() {
   const [allOrders, setAllOrders] = useState([]);
   const [allExpenses, setAllExpenses] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Filters state
@@ -48,8 +49,14 @@ export default function ExpensesPage() {
       .select('*')
       .order('expense_date', { ascending: false });
 
+    // Fetch employees for salaries
+    const { data: employeesData } = await supabase
+      .from('employees')
+      .select('id, monthly_salary');
+
     if (ordersData) setAllOrders(ordersData);
     if (expensesData) setAllExpenses(expensesData);
+    if (employeesData) setAllEmployees(employeesData);
     setIsLoading(false);
   }
 
@@ -86,6 +93,26 @@ export default function ExpensesPage() {
   const totalRevenue = filteredOrders.reduce((sum, order) => sum + Number(order.final_total_pkr), 0);
   const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + Number(exp.amount_pkr), 0);
   const netProfit = totalRevenue - totalExpenses;
+
+  // Salaries grabbed from employees page / table
+  const totalSalariesFromEmployees = useMemo(() => {
+    return allEmployees.reduce((sum, emp) => sum + Number(emp.monthly_salary || 0), 0);
+  }, [allEmployees]);
+
+  // Top expense categories breakdown from filtered expenses
+  const topCategories = useMemo(() => {
+    const totals = {};
+    filteredExpenses.forEach(exp => {
+      const cat = exp.category || 'Other';
+      totals[cat] = (totals[cat] || 0) + Number(exp.amount_pkr || 0);
+    });
+    return Object.entries(totals)
+      .map(([category, amount]) => ({ category, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [filteredExpenses]);
+
+  const topCategory1 = topCategories[0] || { category: 'None', amount: 0 };
+  const topCategory2 = topCategories[1] || { category: 'None', amount: 0 };
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
@@ -240,6 +267,39 @@ export default function ExpensesPage() {
             <span className={`stat-value ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               Rs {netProfit.toLocaleString()}
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Category Breakdown Widgets (Salaries + Top Categories) */}
+      <div className="stats-grid mb-4">
+        <div className="stat-card">
+          <div className="stat-icon bg-purple-100 text-purple-600">
+            <Users size={24} />
+          </div>
+          <div className="stat-details">
+            <span className="stat-label">Total Salaries (Employees)</span>
+            <span className="stat-value">Rs {totalSalariesFromEmployees.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon bg-amber-100 text-amber-600">
+            <Award size={24} />
+          </div>
+          <div className="stat-details">
+            <span className="stat-label">Most Expensed: {topCategory1.category}</span>
+            <span className="stat-value">Rs {topCategory1.amount.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon bg-indigo-100 text-indigo-600">
+            <Tag size={24} />
+          </div>
+          <div className="stat-details">
+            <span className="stat-label">2nd Most Expensed: {topCategory2.category}</span>
+            <span className="stat-value">Rs {topCategory2.amount.toLocaleString()}</span>
           </div>
         </div>
       </div>

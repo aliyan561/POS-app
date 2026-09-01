@@ -76,6 +76,13 @@
   color: var(--text-main);
 }
 
+.bg-purple-100 { background-color: #f3e8ff; }
+.text-purple-600 { color: #9333ea; }
+.bg-amber-100 { background-color: #ffedd5; }
+.text-amber-600 { color: #ea580c; }
+.bg-indigo-100 { background-color: #e0e7ff; }
+.text-indigo-600 { color: #4f46e5; }
+
 /* Responsive Expenses */
 @media (max-width: 767px) {
   .expenses-controls-advanced {

@@ -455,7 +455,7 @@ export default function AnalyticsPage() {
     const filtered = allOrders.filter(order => {
       const d = parseISO(order.order_date);
       if (topServicesFilter === 'week') return isThisWeek(d);
-      return format(d, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
+      return format(d, 'yyyy-MM') === filterMonth;
     });
 
     const revenueMap = {};
@@ -486,7 +486,7 @@ export default function AnalyticsPage() {
     }
 
     return sorted;
-  }, [allOrders, topServicesFilter, servicesList]);
+  }, [allOrders, topServicesFilter, filterMonth, servicesList]);
 
   const yAxisFormatter = (value) => {
     if (metric === 'revenue') {
@@ -520,8 +520,26 @@ export default function AnalyticsPage() {
     <div className="analytics-layout">
       {/* ── Top Services Section ── */}
       <div className="mb-4">
-        <div className="top-services-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'var(--text-main)' }}>Top 4 Services Earned</h3>
+        <div className="top-services-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'var(--text-main)' }}>Top 4 Services Earned</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <select 
+                className="form-control" 
+                value={filterMonth} 
+                onChange={e => handleMonthSelect(e.target.value)} 
+                style={{ width: '220px', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
+              >
+                <option value="last-month">📅 Last Month ({formatMonthLabel(lastMonthValue)})</option>
+                {availableMonths.map(ym => (
+                  <option key={ym} value={ym}>
+                    {formatMonthLabel(ym)}{ym === format(new Date(), 'yyyy-MM') ? ' (Current)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="time-filters">
             <button 
               className={`filter-btn ${topServicesFilter === 'week' ? 'active' : ''}`} 
@@ -533,7 +551,7 @@ export default function AnalyticsPage() {
               className={`filter-btn ${topServicesFilter === 'month' ? 'active' : ''}`} 
               onClick={() => setTopServicesFilter('month')}
             >
-              This Month
+              Selected Month
             </button>
           </div>
         </div>
