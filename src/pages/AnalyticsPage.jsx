@@ -450,16 +450,10 @@ export default function AnalyticsPage() {
     return { bestDay, bestWeek, totalRevenue, totalCustomers };
   }, [filteredOrders]);
 
-  // Top Services Calculation
+  // Top Services Calculation based on filteredOrders
   const topServices = useMemo(() => {
-    const filtered = allOrders.filter(order => {
-      const d = parseISO(order.order_date);
-      if (topServicesFilter === 'week') return isThisWeek(d);
-      return format(d, 'yyyy-MM') === filterMonth;
-    });
-
     const revenueMap = {};
-    filtered.forEach(order => {
+    filteredOrders.forEach(order => {
       if (!order.order_items) return;
       order.order_items.forEach(item => {
         const sId = item.service_id;
@@ -486,7 +480,7 @@ export default function AnalyticsPage() {
     }
 
     return sorted;
-  }, [allOrders, topServicesFilter, filterMonth, servicesList]);
+  }, [filteredOrders, servicesList]);
 
   const yAxisFormatter = (value) => {
     if (metric === 'revenue') {
@@ -518,41 +512,32 @@ export default function AnalyticsPage() {
 
   return (
     <div className="analytics-layout">
-      {/* ── Top Services Section ── */}
+      {/* ── Top Header & Unified Timeframe Controls ── */}
       <div className="mb-4">
         <div className="top-services-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'var(--text-main)' }}>Top 4 Services Earned</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <select 
-                className="form-control" 
-                value={filterMonth} 
-                onChange={e => handleMonthSelect(e.target.value)} 
-                style={{ width: '220px', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
-              >
-                <option value="last-month">📅 Last Month ({formatMonthLabel(lastMonthValue)})</option>
-                {availableMonths.map(ym => (
-                  <option key={ym} value={ym}>
-                    {formatMonthLabel(ym)}{ym === format(new Date(), 'yyyy-MM') ? ' (Current)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'var(--text-main)' }}>Top 4 Services Earned</h3>
 
-          <div className="time-filters">
-            <button 
-              className={`filter-btn ${topServicesFilter === 'week' ? 'active' : ''}`} 
-              onClick={() => setTopServicesFilter('week')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div className="time-filters">
+              <button className={`filter-btn ${dateFilterType === 'all' ? 'active' : ''}`} onClick={() => setDateFilterType('all')}>All Time</button>
+              <button className={`filter-btn ${dateFilterType === 'daily' ? 'active' : ''}`} onClick={() => setDateFilterType('daily')}>Today</button>
+              <button className={`filter-btn ${dateFilterType === 'weekly' ? 'active' : ''}`} onClick={() => setDateFilterType('weekly')}>This Week</button>
+              <button className={`filter-btn ${dateFilterType === 'weekly-all' ? 'active' : ''}`} onClick={() => setDateFilterType('weekly-all')}>Weekly</button>
+            </div>
+
+            <select 
+              className="form-control" 
+              value={filterMonth} 
+              onChange={e => handleMonthSelect(e.target.value)} 
+              style={{ width: '220px', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
             >
-              This Week
-            </button>
-            <button 
-              className={`filter-btn ${topServicesFilter === 'month' ? 'active' : ''}`} 
-              onClick={() => setTopServicesFilter('month')}
-            >
-              Selected Month
-            </button>
+              <option value="last-month">📅 Last Month ({formatMonthLabel(lastMonthValue)})</option>
+              {availableMonths.map(ym => (
+                <option key={ym} value={ym}>
+                  {formatMonthLabel(ym)}{ym === format(new Date(), 'yyyy-MM') ? ' (Current)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         
@@ -617,35 +602,6 @@ export default function AnalyticsPage() {
 
       {/* ── Controls ── */}
       <div className="analytics-controls">
-        
-        {/* Timeframe */}
-        <div className="filter-group">
-          <label className="filter-label"><Calendar size={14}/> Timeframe</label>
-          <div className="time-filters">
-            <button className={`filter-btn ${dateFilterType === 'all' ? 'active' : ''}`} onClick={() => setDateFilterType('all')}>All Time</button>
-            <button className={`filter-btn ${dateFilterType === 'daily' ? 'active' : ''}`} onClick={() => setDateFilterType('daily')}>Today</button>
-            <button className={`filter-btn ${dateFilterType === 'weekly' ? 'active' : ''}`} onClick={() => setDateFilterType('weekly')}>This Week</button>
-            <button className={`filter-btn ${dateFilterType === 'weekly-all' ? 'active' : ''}`} onClick={() => { setDateFilterType('weekly-all'); }}>Weekly</button>
-          </div>
-        </div>
-
-        {/* Month Picker */}
-        <div className="filter-group">
-          <label className="filter-label"><Calendar size={14}/> Month</label>
-          <select 
-            className="form-control" 
-            value={filterMonth} 
-            onChange={e => handleMonthSelect(e.target.value)} 
-            style={{ width: '220px' }}
-          >
-            <option value="last-month">📅 Last Month ({formatMonthLabel(lastMonthValue)})</option>
-            {availableMonths.map(ym => (
-              <option key={ym} value={ym}>
-                {formatMonthLabel(ym)}{ym === format(new Date(), 'yyyy-MM') ? ' (Current)' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
 
         {/* Metric (Y-Axis) */}
         <div className="filter-group">
