@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabase';
 import { TrendingUp, TrendingDown, DollarSign, Calendar, Plus, X, Edit, Users, Award, Tag } from 'lucide-react';
-import { format, parseISO, isWithinInterval, startOfDay, endOfDay, isToday, isThisWeek } from 'date-fns';
+import { format, parseISO, isToday, isThisWeek } from 'date-fns';
 import './ExpensesPage.css';
 
 export default function ExpensesPage() {
@@ -11,10 +11,8 @@ export default function ExpensesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Filters state
-  const [dateFilterType, setDateFilterType] = useState('all'); // all, daily, weekly, month, custom
-  const [filterMonth, setFilterMonth] = useState('');
-  const [filterStartDate, setFilterStartDate] = useState('');
-  const [filterEndDate, setFilterEndDate] = useState('');
+  const [dateFilterType, setDateFilterType] = useState('all'); // all, daily, weekly, month
+  const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [filterCategory, setFilterCategory] = useState('All');
 
   const EXPENSE_CATEGORIES = ['Utilities', 'Salaries', 'Admin Expense', 'Maintenance', 'Disposables', 'Subscriptions'];
@@ -22,6 +20,40 @@ export default function ExpensesPage() {
     const categoriesFromData = allExpenses.map(e => e.category);
     return Array.from(new Set([...EXPENSE_CATEGORIES, ...categoriesFromData])).filter(Boolean);
   }, [allExpenses]);
+
+  // Available Months list built from expenses and orders
+  const availableMonths = useMemo(() => {
+    const monthSet = new Set();
+    allExpenses.forEach(e => {
+      if (e.expense_date) monthSet.add(format(parseISO(e.expense_date), 'yyyy-MM'));
+    });
+    allOrders.forEach(o => {
+      if (o.order_date) monthSet.add(format(parseISO(o.order_date), 'yyyy-MM'));
+    });
+    monthSet.add(format(new Date(), 'yyyy-MM'));
+    return Array.from(monthSet).sort((a, b) => b.localeCompare(a));
+  }, [allExpenses, allOrders]);
+
+  const formatMonthLabel = (ym) => {
+    const [year, month] = ym.split('-').map(Number);
+    return format(new Date(year, month - 1), 'MMMM yyyy');
+  };
+
+  const lastMonthValue = useMemo(() => {
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return format(lastMonth, 'yyyy-MM');
+  }, []);
+
+  const handleMonthSelect = (value) => {
+    if (value === 'last-month') {
+      setFilterMonth(lastMonthValue);
+      setDateFilterType('month');
+    } else {
+      setFilterMonth(value);
+      setDateFilterType('month');
+    }
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -71,23 +103,18 @@ export default function ExpensesPage() {
     if (dateFilterType === 'month' && filterMonth) {
       return format(date, 'yyyy-MM') === filterMonth;
     }
-    if (dateFilterType === 'custom' && filterStartDate && filterEndDate) {
-      const start = startOfDay(parseISO(filterStartDate));
-      const end = endOfDay(parseISO(filterEndDate));
-      return isWithinInterval(date, { start, end });
-    }
     return true;
   };
 
   // Filtered Data
-  const filteredOrders = useMemo(() => allOrders.filter(o => passesDateFilter(o.order_date)), [allOrders, dateFilterType, filterMonth, filterStartDate, filterEndDate]);
+  const filteredOrders = useMemo(() => allOrders.filter(o => passesDateFilter(o.order_date)), [allOrders, dateFilterType, filterMonth]);
   const filteredExpenses = useMemo(() => {
     return allExpenses.filter(e => {
       const passDate = passesDateFilter(e.expense_date);
       const passCategory = filterCategory === 'All' ? true : e.category === filterCategory;
       return passDate && passCategory;
     });
-  }, [allExpenses, dateFilterType, filterMonth, filterStartDate, filterEndDate, filterCategory]);
+  }, [allExpenses, dateFilterType, filterMonth, filterCategory]);
 
   // Calculations
   const totalRevenue = filteredOrders.reduce((sum, order) => sum + Number(order.final_total_pkr), 0);
@@ -176,62 +203,48 @@ export default function ExpensesPage() {
 
   return (
     <div className="expenses-layout">
-      {/* Top Controls: Advanced Filters */}
-      <div className="expenses-controls-advanced mb-4">
+      {/* Top Controls: Category, Timeframe & Month Dropdown */}
+      <div className="expenses-controls-advanced mb-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div className="filter-group">
-          <label className="filter-label"><Calendar size={14} /> Category</label>
-          <div className="time-filters-advanced">
-            <select
-              className="form-control"
-              value={filterCategory}
-              onChange={e => setFilterCategory(e.target.value)}
-              style={{ padding: '0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}
-            >
-              <option value="All">All Categories</option>
-              {allAvailableCategories.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
+          <label className="filter-label"><Calendar size={14} /> Category Filter</label>
+          <select
+            className="form-control"
+            value={filterCategory}
+            onChange={e => setFilterCategory(e.target.value)}
+            style={{ width: '200px', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
+          >
+            <option value="All">All Categories</option>
+            {allAvailableCategories.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
 
-        <div className="filter-group">
-          <label className="filter-label"><Calendar size={14} /> Timeframe</label>
-          <div className="time-filters-advanced">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <div className="filter-group">
+            <label className="filter-label"><Calendar size={14} /> Timeframe</label>
             <div className="time-filters">
               <button className={`filter-btn ${dateFilterType === 'all' ? 'active' : ''}`} onClick={() => setDateFilterType('all')}>All Time</button>
-              <button className={`filter-btn ${dateFilterType === 'daily' ? 'active' : ''}`} onClick={() => setDateFilterType('daily')}>Daily</button>
-              <button className={`filter-btn ${dateFilterType === 'weekly' ? 'active' : ''}`} onClick={() => setDateFilterType('weekly')}>Weekly</button>
-              <button className={`filter-btn ${dateFilterType === 'month' ? 'active' : ''}`} onClick={() => setDateFilterType('month')}>Monthly</button>
-              <button className={`filter-btn ${dateFilterType === 'custom' ? 'active' : ''}`} onClick={() => setDateFilterType('custom')}>Custom</button>
+              <button className={`filter-btn ${dateFilterType === 'daily' ? 'active' : ''}`} onClick={() => setDateFilterType('daily')}>Today</button>
+              <button className={`filter-btn ${dateFilterType === 'weekly' ? 'active' : ''}`} onClick={() => setDateFilterType('weekly')}>This Week</button>
             </div>
+          </div>
 
-            {dateFilterType === 'month' && (
-              <input
-                type="month"
-                className="form-control"
-                value={filterMonth}
-                onChange={e => setFilterMonth(e.target.value)}
-              />
-            )}
-
-            {dateFilterType === 'custom' && (
-              <div className="date-range-inputs">
-                <input
-                  type="date"
-                  className="form-control"
-                  value={filterStartDate}
-                  onChange={e => setFilterStartDate(e.target.value)}
-                />
-                <span className="text-muted">to</span>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={filterEndDate}
-                  onChange={e => setFilterEndDate(e.target.value)}
-                />
-              </div>
-            )}
+          <div className="filter-group">
+            <label className="filter-label"><Calendar size={14} /> Month</label>
+            <select 
+              className="form-control" 
+              value={filterMonth} 
+              onChange={e => handleMonthSelect(e.target.value)} 
+              style={{ width: '220px', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
+            >
+              <option value="last-month">📅 Last Month ({formatMonthLabel(lastMonthValue)})</option>
+              {availableMonths.map(ym => (
+                <option key={ym} value={ym}>
+                  {formatMonthLabel(ym)}{ym === format(new Date(), 'yyyy-MM') ? ' (Current)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
