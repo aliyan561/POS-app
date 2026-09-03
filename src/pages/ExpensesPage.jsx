@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabase';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Plus, X, Edit, Users, Award, Tag } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, Plus, X, Edit, Users, Award, Tag, Printer } from 'lucide-react';
 import { format, parseISO, isToday, isThisWeek } from 'date-fns';
+import logoImg from '../../assets/with-text-logo.png';
 import './ExpensesPage.css';
 
 export default function ExpensesPage() {
@@ -60,8 +61,11 @@ export default function ExpensesPage() {
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [currentEditId, setCurrentEditId] = useState(null);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
-  const [expenseForm, setExpenseForm] = useState({ title: '', category: '', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
+  const [expenseForm, setExpenseForm] = useState({ title: '', category: '', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm"), approved_by: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Print state
+  const [printingExpense, setPrintingExpense] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -155,7 +159,8 @@ export default function ExpensesPage() {
           title: expenseForm.title,
           category: expenseForm.category,
           amount_pkr: Number(expenseForm.amount_pkr),
-          expense_date: new Date(expenseForm.expense_date).toISOString()
+          expense_date: new Date(expenseForm.expense_date).toISOString(),
+          approved_by: expenseForm.approved_by || null
         })
         .eq('id', currentEditId);
       error = updateError;
@@ -164,7 +169,8 @@ export default function ExpensesPage() {
         title: expenseForm.title,
         category: expenseForm.category,
         amount_pkr: Number(expenseForm.amount_pkr),
-        expense_date: new Date(expenseForm.expense_date).toISOString()
+        expense_date: new Date(expenseForm.expense_date).toISOString(),
+        approved_by: expenseForm.approved_by || null
       }]);
       error = insertError;
     }
@@ -175,7 +181,7 @@ export default function ExpensesPage() {
     } else {
       setIsModalOpen(false);
       setShowCustomCategory(false);
-      setExpenseForm({ title: '', category: '', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
+      setExpenseForm({ title: '', category: '', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm"), approved_by: '' });
       fetchData(); // Refresh table
     }
   };
@@ -188,7 +194,8 @@ export default function ExpensesPage() {
       title: exp.title,
       category: exp.category,
       amount_pkr: exp.amount_pkr,
-      expense_date: format(parseISO(exp.expense_date), "yyyy-MM-dd'T'HH:mm")
+      expense_date: format(parseISO(exp.expense_date), "yyyy-MM-dd'T'HH:mm"),
+      approved_by: exp.approved_by || ''
     });
     setIsModalOpen(true);
   };
@@ -197,7 +204,7 @@ export default function ExpensesPage() {
     setModalMode('add');
     setCurrentEditId(null);
     setShowCustomCategory(false);
-    setExpenseForm({ title: '', category: '', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
+    setExpenseForm({ title: '', category: '', amount_pkr: '', expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm"), approved_by: '' });
     setIsModalOpen(true);
   };
 
@@ -348,6 +355,7 @@ export default function ExpensesPage() {
                     <th>Date</th>
                     <th>Title</th>
                     <th>Category</th>
+                    <th>Approved By</th>
                     <th className="text-right">Amount</th>
                     <th className="text-right">Actions</th>
                   </tr>
@@ -367,13 +375,35 @@ export default function ExpensesPage() {
                           {exp.category}
                         </span>
                       </td>
+                      <td data-label="Approved By">
+                        {exp.approved_by ? (
+                          <span className="approved-by-badge">{exp.approved_by}</span>
+                        ) : (
+                          <span className="text-muted" style={{ fontSize: '0.8rem' }}>—</span>
+                        )}
+                      </td>
                       <td data-label="Amount" className="text-right font-semibold text-danger">
                         - Rs {exp.amount_pkr.toLocaleString()}
                       </td>
                       <td data-label="Actions" className="text-right">
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem' }} onClick={() => handleEditClick(exp)} title="Edit">
-                          <Edit size={16} />
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                          <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem' }} onClick={() => handleEditClick(exp)} title="Edit">
+                            <Edit size={16} />
+                          </button>
+                          <button 
+                            className="btn btn-outline" 
+                            style={{ padding: '0.25rem 0.5rem' }} 
+                            onClick={async () => {
+                              setPrintingExpense(exp);
+                              await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                              window.print();
+                              setPrintingExpense(null);
+                            }} 
+                            title="Print Voucher"
+                          >
+                            <Printer size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -471,15 +501,27 @@ export default function ExpensesPage() {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Date & Time</label>
-                <input
-                  type="datetime-local"
-                  className="form-control"
-                  value={expenseForm.expense_date}
-                  onChange={e => setExpenseForm({ ...expenseForm, expense_date: e.target.value })}
-                  required
-                />
+              <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label className="form-label">Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    className="form-control"
+                    value={expenseForm.expense_date}
+                    onChange={e => setExpenseForm({ ...expenseForm, expense_date: e.target.value })}
+                    required
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="form-label">Approved By</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Dr. Salman, Manager"
+                    value={expenseForm.approved_by}
+                    onChange={e => setExpenseForm({ ...expenseForm, approved_by: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
@@ -500,6 +542,66 @@ export default function ExpensesPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Hidden Thermal Expense Receipt (visible only during print) */}
+      {printingExpense && (
+        <div id="expense-receipt" className="print-only">
+          <div className="receipt-header">
+            <img src={logoImg} alt="Prime Diagnostic Centre Logo" className="receipt-logo" style={{ margin: '0 auto 10px auto', display: 'block', maxWidth: '100%' }} />
+            <h2>Prime Diagnostic Centre</h2>
+            <p>0314-1117447</p>
+            <p><strong>EXPENSE PAYMENT VOUCHER</strong></p>
+          </div>
+
+          <div className="receipt-details">
+            <p><strong>Voucher Ref #:</strong> EXP-{printingExpense.id ? String(printingExpense.id).substring(0, 8).toUpperCase() : 'N/A'}</p>
+            <p><strong>Date:</strong> {format(parseISO(printingExpense.expense_date), 'MMM dd, yyyy - hh:mm a')}</p>
+          </div>
+
+          <div style={{ borderTop: '1px dashed #000', margin: '10px 0' }}></div>
+
+          <table className="receipt-items">
+            <tbody>
+              <tr>
+                <td><strong>Title:</strong></td>
+                <td>{printingExpense.title}</td>
+              </tr>
+              <tr>
+                <td><strong>Category:</strong></td>
+                <td>{printingExpense.category}</td>
+              </tr>
+              {printingExpense.approved_by && (
+                <tr>
+                  <td><strong>Approved By:</strong></td>
+                  <td>{printingExpense.approved_by}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          <div style={{ borderTop: '1px dashed #000', margin: '10px 0' }}></div>
+
+          <div className="receipt-totals">
+            <h3>Amount: <span style={{ float: 'right' }}>Rs {Number(printingExpense.amount_pkr).toLocaleString()}</span></h3>
+          </div>
+
+          <div style={{ borderTop: '1px dashed #000', margin: '15px 0' }}></div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '30px', fontSize: '11px' }}>
+            <div style={{ textAlign: 'center', flex: 1 }}>
+              <div style={{ borderTop: '1px solid #000', width: '80%', margin: '0 auto 4px auto' }}></div>
+              <p>Approved By</p>
+            </div>
+            <div style={{ textAlign: 'center', flex: 1 }}>
+              <div style={{ borderTop: '1px solid #000', width: '80%', margin: '0 auto 4px auto' }}></div>
+              <p>Received By</p>
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1px dashed #000', margin: '15px 0' }}></div>
+          <p style={{ textAlign: 'center', fontSize: '11px', lineHeight: '1.4' }}>Address: RC 8-5-2, Mohanlal Bhagwandas Building, Civil Hospital Road, Off M.A. Jinnah Road, Karachi</p>
         </div>
       )}
     </div>

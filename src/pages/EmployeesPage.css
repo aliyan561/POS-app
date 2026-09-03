@@ -21,6 +21,14 @@
   box-shadow: var(--shadow-md);
 }
 
+.employee-card-clickable {
+  cursor: pointer;
+}
+
+.employee-card-clickable:hover {
+  border-color: var(--primary);
+}
+
 .employee-header {
   display: flex;
   justify-content: space-between;
@@ -124,6 +132,278 @@
   color: var(--danger);
 }
 
+/* ===== View Toggle Header ===== */
+.emp-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.emp-view-toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.emp-view-toggle .filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.75rem;
+}
+
+/* ===== Payroll Summary Table ===== */
+.payroll-table-container {
+  padding: 0;
+}
+
+.payroll-table-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.payroll-month-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.payroll-summary-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  padding: 0.75rem 1rem;
+  background: var(--bg-main);
+}
+
+.payroll-summary-table td {
+  padding: 0.75rem 1rem;
+  white-space: nowrap;
+}
+
+.payroll-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.payroll-row:hover {
+  background: var(--bg-main);
+}
+
+.payroll-total-row {
+  background: var(--bg-main);
+  border-top: 2px solid var(--border);
+}
+
+.payroll-total-row td {
+  padding: 1rem;
+}
+
+/* ===== Detail Modal ===== */
+.detail-modal-content {
+  max-width: 900px;
+  width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.detail-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.detail-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.detail-header-left h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.detail-header-actions .btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.75rem;
+}
+
+.detail-modal-body {
+  padding: 0.5rem 0;
+}
+
+/* Payroll Metrics Grid */
+.payroll-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.payroll-metric {
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.payroll-metric-total {
+  border-color: var(--primary);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.payroll-metric-advance {
+  min-width: 200px;
+}
+
+.metric-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.metric-value small {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.metric-danger {
+  color: var(--danger);
+}
+
+.metric-primary {
+  color: var(--primary);
+  font-size: 1.15rem;
+}
+
+.metric-advance-val {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.advance-edit-icon {
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+.metric-advance-val:hover .advance-edit-icon {
+  opacity: 1;
+}
+
+.advance-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-sm {
+  padding: 0.2rem 0.5rem !important;
+  font-size: 0.8rem !important;
+}
+
+/* Shift info */
+.detail-shift-info {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.75rem 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.detail-shift-info span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Detail attendance table */
+.detail-section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+}
+
+.detail-attendance-table th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.5rem 0.75rem;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: var(--card-bg);
+  z-index: 1;
+}
+
+.detail-attendance-table td {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* Attendance status badges */
+.att-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.att-badge-present {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+.att-badge-late {
+  background: rgba(234, 179, 8, 0.12);
+  color: #a16207;
+}
+
+.att-badge-absent {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.att-badge-upcoming {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+}
+
 /* Responsive Employees */
 @media (max-width: 767px) {
   .employee-header {
@@ -145,5 +425,59 @@
   .btn.btn-primary {
     width: 100%;
     justify-content: center;
+  }
+
+  .emp-header-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .detail-modal-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .detail-header-actions {
+    width: 100%;
+  }
+
+  .payroll-metrics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ===== Print Styles for Employee Slip ===== */
+@media print {
+  @page {
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #employee-slip, #employee-slip * {
+    visibility: visible;
+  }
+
+  #employee-slip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 2mm;
+    box-shadow: none;
+    border: none;
+    display: block !important;
+    font-family: monospace;
+    font-size: 12px;
+    color: black !important;
+  }
+
+  #employee-slip * {
+    color: black !important;
   }
 }

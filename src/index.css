@@ -232,7 +232,9 @@ input, textarea {
     display: block !important;
   }
 
-  #print-receipt {
+  #print-receipt,
+  #employee-slip,
+  #expense-receipt {
     display: block !important;
     width: 80mm;
     margin: 0;
@@ -242,7 +244,9 @@ input, textarea {
     color: black !important;
   }
 
-  #print-receipt * {
+  #print-receipt *,
+  #employee-slip *,
+  #expense-receipt * {
     color: black !important;
   }
 }
