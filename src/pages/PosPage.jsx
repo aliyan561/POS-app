@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { Plus, Minus, Trash2, Printer, Edit2, X, ChevronRight, Search } from 'lucide-react';
+import { Plus, Minus, Trash2, Printer, Edit2, X, ChevronRight, Search, CreditCard, Banknote } from 'lucide-react';
 import './PosPage.css';
 import logoImg from '../../assets/with-text-logo.png';
 import { useAuth } from '../AuthContext';
@@ -13,6 +13,7 @@ export default function PosPage() {
   const [phoneError, setPhoneError] = useState('');
   const [discountValue, setDiscountValue] = useState('');
   const [discountType, setDiscountType] = useState('amount');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingServices, setIsLoadingServices] = useState(true);
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -71,6 +72,7 @@ export default function PosPage() {
         setBasket([]);
         setDiscountValue('');
         setDiscountType('amount');
+        setPaymentMethod('Cash');
       };
       
       runPrintSequence();
@@ -244,7 +246,8 @@ export default function PosPage() {
         .insert([{
           patient_id: patientData.id,
           discount_applied_pkr: Math.round(discountAmount),
-          final_total_pkr: finalTotal
+          final_total_pkr: finalTotal,
+          payment_method: paymentMethod
         }])
         .select()
         .single();
@@ -327,6 +330,7 @@ export default function PosPage() {
                   <p>Subtotal: <span>Rs {subtotal}</span></p>
                   <p>Discount: <span>Rs {Math.round(discountAmount)} {discountType === 'percentage' && discountValue ? `(${discountValue}%)` : ''}</span></p>
                   <h3>Total: <span>Rs {finalTotal}</span></h3>
+                  <p><strong>Payment:</strong> <span>{paymentMethod}</span></p>
                 </div>
                 <div className="receipt-footer">
                   <p>Please collect your reports between 3:30 PM to 5:30 PM on reporting date</p>
@@ -616,6 +620,25 @@ export default function PosPage() {
                   placeholder="0"
                   style={{ flex: 1, width: '100%' }}
                 />
+              </div>
+            </div>
+            <div className="summary-row payment-method-row">
+              <span>Payment</span>
+              <div className="payment-toggle">
+                <button 
+                  className={`payment-option ${paymentMethod === 'Cash' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('Cash')}
+                >
+                  <Banknote size={14} />
+                  Cash
+                </button>
+                <button 
+                  className={`payment-option ${paymentMethod === 'Card' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('Card')}
+                >
+                  <CreditCard size={14} />
+                  Card
+                </button>
               </div>
             </div>
             <div className="summary-row total-row">

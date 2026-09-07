@@ -218,6 +218,46 @@
   border-radius: 4px;
 }
 
+/* Payment Method Toggle */
+.payment-method-row {
+  margin-bottom: 1rem;
+}
+
+.payment-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.payment-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.payment-option:first-child {
+  border-right: 1px solid var(--border);
+}
+
+.payment-option.active {
+  background-color: var(--primary);
+  color: #fff;
+}
+
+.payment-option:not(.active):hover {
+  background-color: var(--secondary);
+}
+
 .total-row {
   font-size: 1.25rem;
   font-weight: 700;
