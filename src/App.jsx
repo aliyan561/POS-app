@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Wallet, LogOut, BarChart3, Users, ClipboardList, Bell, Menu, X } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Wallet, LogOut, BarChart3, Users, ClipboardList, Bell, Menu, X, Package } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import PosPage from './pages/PosPage';
@@ -9,6 +9,7 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import LoginPage from './pages/LoginPage';
 import EmployeesPage from './pages/EmployeesPage';
 import AttendancePage from './pages/AttendancePage';
+import InventoryPage from './pages/InventoryPage';
 import logo from '../assets/logo-transparent-bg.png';
 import { useAuth } from './AuthContext';
 
@@ -172,6 +173,13 @@ function App() {
                   <Wallet size={20} />
                   <span>Expenses</span>
                 </NavLink>
+                <NavLink 
+                  to="/inventory" 
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                >
+                  <Package size={20} />
+                  <span>Inventory</span>
+                </NavLink>
               </>
             )}
           </nav>
@@ -228,6 +236,14 @@ function App() {
                 element={
                   role === 'admin' 
                     ? <ExpensesPage /> 
+                    : <Navigate to="/dashboard" replace />
+                } 
+              />
+              <Route 
+                path="/inventory" 
+                element={
+                  role === 'admin' 
+                    ? <InventoryPage /> 
                     : <Navigate to="/dashboard" replace />
                 } 
               />

@@ -72,6 +72,11 @@
   color: #be185d;
 }
 
+.cat-inventory {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
 .text-main {
   color: var(--text-main);
 }

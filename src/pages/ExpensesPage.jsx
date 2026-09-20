@@ -16,7 +16,7 @@ export default function ExpensesPage() {
   const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [filterCategory, setFilterCategory] = useState('All');
 
-  const EXPENSE_CATEGORIES = ['Utilities', 'Salaries', 'Admin Expense', 'Maintenance', 'Disposables', 'Subscriptions'];
+  const EXPENSE_CATEGORIES = ['Utilities', 'Salaries', 'Admin Expense', 'Maintenance', 'Disposables', 'Subscriptions', 'Inventory'];
   const allAvailableCategories = useMemo(() => {
     const categoriesFromData = allExpenses.map(e => e.category);
     return Array.from(new Set([...EXPENSE_CATEGORIES, ...categoriesFromData])).filter(Boolean);

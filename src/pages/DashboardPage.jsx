@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { supabase } from '../supabase';
-import { TrendingUp, Users, Calendar, Search, X, Filter, Edit, Check, Printer } from 'lucide-react';
+import { TrendingUp, Users, Calendar, Search, X, Filter, Edit, Check, Printer, FileText } from 'lucide-react';
 import './DashboardPage.css';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, isToday, isThisWeek } from 'date-fns';
 import { useAuth } from '../AuthContext';
 import logoImg from '../../assets/with-text-logo.png';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 export default function DashboardPage() {
   const { role, user } = useAuth();
@@ -25,6 +27,7 @@ export default function DashboardPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [isModalLoading, setIsModalLoading] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
@@ -33,6 +36,7 @@ export default function DashboardPage() {
     age: '',
     gender: '',
     referred_by: '',
+    reporting: '',
     final_total_pkr: 0,
     discount_applied_pkr: 0,
     injections_cost_pkr: 0,
@@ -75,7 +79,8 @@ export default function DashboardPage() {
           visit_description,
           age,
           gender,
-          referred_by
+          referred_by,
+          reporting
         ),
         order_items (
           quantity,
@@ -173,6 +178,7 @@ export default function DashboardPage() {
       age: order.patients?.age || '',
       gender: order.patients?.gender || '',
       referred_by: order.patients?.referred_by || '',
+      reporting: order.patients?.reporting || '',
       final_total_pkr: order.final_total_pkr || 0,
       discount_applied_pkr: order.discount_applied_pkr || 0,
       injections_cost_pkr: order.injections_cost_pkr || 0,
@@ -218,7 +224,8 @@ export default function DashboardPage() {
         visit_description: editForm.visit_description,
         age: editForm.age,
         gender: editForm.gender,
-        referred_by: editForm.referred_by
+        referred_by: editForm.referred_by,
+        reporting: editForm.reporting
       };
 
       const orderUpdate = {
@@ -297,6 +304,230 @@ export default function DashboardPage() {
     } catch (err) {
       console.error("Failed to update expense:", err);
       alert("Failed to save expense.");
+    }
+  };
+
+  const handleReportingSave = async (newReporting) => {
+    if (!selectedOrder?.patients?.id) return;
+    try {
+      const { error } = await supabase
+        .from('patients')
+        .update({ reporting: newReporting })
+        .eq('id', selectedOrder.patients.id);
+      if (error) throw error;
+      
+      setAllOrders(prev => prev.map(o => {
+        if (o.id === selectedOrder.id) {
+          return { ...o, patients: { ...o.patients, reporting: newReporting } };
+        }
+        return o;
+      }));
+      setSelectedOrder(prev => ({
+        ...prev,
+        patients: { ...prev.patients, reporting: newReporting }
+      }));
+    } catch (err) {
+      console.error("Failed to save reporting:", err);
+      alert("Failed to save reporting text.");
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!selectedOrder) {
+      alert("Please select an order first.");
+      return;
+    }
+    
+    setIsExportingPdf(true);
+
+    try {
+      const patient = selectedOrder.patients || {};
+      const receiptId = selectedOrder.id ? selectedOrder.id.substring(0, 8).toUpperCase() : 'N/A';
+      
+      let orderDate = 'N/A';
+      try {
+        if (selectedOrder.order_date) {
+          orderDate = format(parseISO(selectedOrder.order_date), 'MMMM dd, yyyy - hh:mm a');
+        }
+      } catch (e) {
+        orderDate = selectedOrder.order_date || 'N/A';
+      }
+
+      const reportingText = editForm.reporting || patient.reporting || '';
+      const finalTotal = Number(selectedOrder.final_total_pkr || 0);
+      const discount = Number(selectedOrder.discount_applied_pkr || 0);
+      const subtotal = finalTotal + discount;
+      
+      const escapeHtml = (str) => str ? String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, '<br>') : '';
+
+      let servicesRows = '';
+      if (orderItems && orderItems.length > 0) {
+        orderItems.forEach((item, idx) => {
+          const serviceName = item?.services?.service_name || (typeof item?.services === 'string' ? item.services : 'Diagnostic Service');
+          const qty = Number(item?.quantity) || 1;
+          const unitPrice = Number(item?.services?.price_pkr) || 0;
+          const lineTotal = unitPrice * qty;
+          
+          servicesRows += `<tr>
+            <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${idx + 1}</td>
+            <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 500;">${escapeHtml(serviceName)}</td>
+            <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; text-align: center; font-size: 13px;">${qty}</td>
+            <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; text-align: right; font-size: 13px; font-weight: 600;">Rs ${lineTotal.toLocaleString()}</td>
+          </tr>`;
+        });
+      } else {
+        servicesRows = `<tr><td colspan="4" style="padding: 16px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 13px;">No specific services recorded</td></tr>`;
+      }
+
+      // Create a temporary container styled for standard A4 page rendering
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = '794px';
+      container.style.backgroundColor = '#ffffff';
+      container.style.color = '#1e293b';
+      container.style.fontFamily = "Arial, Helvetica, sans-serif";
+      container.style.boxSizing = 'border-box';
+      container.style.padding = '44px 40px';
+      container.style.zIndex = '-9999';
+
+      container.innerHTML = `
+        <div style="text-align: center; padding-bottom: 18px; margin-bottom: 24px; border-bottom: 2px solid #1d4ed8;">
+          <h1 style="font-size: 26px; color: #1d4ed8; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 4px 0;">Prime Diagnostic Centre</h1>
+          <p style="font-size: 12px; color: #64748b; margin: 0 0 12px 0; line-height: 1.4;">0314-1117447 &bull; Civil Hospital Road, Off M.A. Jinnah Road, Karachi</p>
+          <div style="display: inline-block; background: #eff6ff; border: 1px solid #bfdbfe; padding: 6px 18px; border-radius: 20px; font-size: 12px; color: #1e40af; font-weight: 600;">
+            Receipt # ${receiptId} &nbsp;&bull;&nbsp; ${orderDate}
+          </div>
+        </div>
+
+        <div style="margin-bottom: 22px;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #1d4ed8; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e2e8f0;">
+            Patient Information
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 20px; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div>
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Patient Name</div>
+              <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 2px;">${escapeHtml(patient.name) || 'N/A'}</div>
+            </div>
+            <div>
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Contact / Phone</div>
+              <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 2px;">${escapeHtml(patient.phone_number) || 'N/A'}</div>
+            </div>
+            <div>
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Age / Gender</div>
+              <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 2px;">${[patient.age, patient.gender].filter(Boolean).join(' / ') || 'N/A'}</div>
+            </div>
+            <div>
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Referred By</div>
+              <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 2px;">${escapeHtml(patient.referred_by) || 'Self / Walk-in'}</div>
+            </div>
+            <div style="grid-column: span 2;">
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Visit Description</div>
+              <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 2px;">${escapeHtml(patient.visit_description) || 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+
+        ${reportingText.trim() ? `
+        <div style="margin-bottom: 22px;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #1d4ed8; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e2e8f0;">
+            Diagnostic Findings & Reporting
+          </div>
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 18px;">
+            <div style="font-size: 13px; line-height: 1.7; color: #166534; font-weight: 500; white-space: pre-wrap;">${escapeHtml(reportingText)}</div>
+          </div>
+        </div>
+        ` : ''}
+
+        <div style="margin-bottom: 22px;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #1d4ed8; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e2e8f0;">
+            Services Rendered
+          </div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f1f5f9;">
+                <th style="padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; font-weight: 700; text-align: left; border-bottom: 2px solid #cbd5e1;">#</th>
+                <th style="padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; font-weight: 700; text-align: left; border-bottom: 2px solid #cbd5e1;">Service</th>
+                <th style="padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; font-weight: 700; text-align: center; border-bottom: 2px solid #cbd5e1;">Qty</th>
+                <th style="padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; font-weight: 700; text-align: right; border-bottom: 2px solid #cbd5e1;">Amount (PKR)</th>
+              </tr>
+            </thead>
+            <tbody>${servicesRows}</tbody>
+          </table>
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+            <div style="display: flex; justify-content: space-between; padding: 4px 14px; font-size: 13px; color: #475569;">
+              <span>Subtotal</span><span>Rs ${subtotal.toLocaleString()}</span>
+            </div>
+            ${discount > 0 ? `
+            <div style="display: flex; justify-content: space-between; padding: 4px 14px; font-size: 13px; color: #dc2626;">
+              <span>Discount Applied</span><span>- Rs ${discount.toLocaleString()}</span>
+            </div>` : ''}
+            <div style="display: flex; justify-content: space-between; padding: 8px 14px 4px 14px; font-size: 15px; font-weight: 800; color: #1d4ed8; border-top: 2px solid #1d4ed8; margin-top: 6px;">
+              <span>Final Total</span><span>Rs ${finalTotal.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 40px; padding-top: 24px;">
+          <div style="width: 180px; text-align: center;">
+            <div style="border-top: 1px solid #94a3b8; margin-bottom: 6px;"></div>
+            <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Medical Technologist</div>
+          </div>
+          <div style="width: 180px; text-align: center;">
+            <div style="border-top: 1px solid #94a3b8; margin-bottom: 6px;"></div>
+            <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Pathologist / Consultant</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 32px; text-align: center; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+          <p style="font-size: 10px; color: #94a3b8; line-height: 1.5; margin: 0 0 2px 0;">Prime Diagnostic Centre &bull; RC 8-5-2, Mohanlal Bhagwandas Building, Civil Hospital Road, Karachi</p>
+          <p style="font-size: 10px; color: #94a3b8; line-height: 1.5; margin: 0;">Report generated on ${format(new Date(), 'MMMM dd, yyyy — hh:mm a')}</p>
+        </div>
+      `;
+
+      document.body.appendChild(container);
+
+      // Render container to high-res canvas
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      document.body.removeChild(container);
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      if (imgHeight <= pageHeight) {
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      } else {
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+      }
+
+      const patientName = (patient.name || 'Patient').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      pdf.save(`Patient_Report_${patientName}_${receiptId}.pdf`);
+    } catch (err) {
+      console.error("PDF download failed:", err);
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -806,6 +1037,15 @@ export default function DashboardPage() {
                       </button>
                       <button 
                         className="btn btn-sm btn-outline" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', borderColor: '#059669', color: '#059669' }}
+                        onClick={handleExportPDF}
+                        disabled={isModalLoading || isExportingPdf}
+                        title="Download patient report as PDF"
+                      >
+                        <FileText size={14} /> {isExportingPdf ? 'Downloading...' : 'Export PDF'}
+                      </button>
+                      <button 
+                        className="btn btn-sm btn-outline" 
                         style={{ display: 'flex', alignItems: 'center', gap: '4px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
                         onClick={handleDeleteClick}
                         disabled={isDeleting}
@@ -848,6 +1088,10 @@ export default function DashboardPage() {
                         <label className="text-muted" style={{ fontSize: '0.8rem' }}>Visit Description</label>
                         <textarea className="form-control form-control-sm" value={editForm.visit_description} onChange={e => setEditForm({...editForm, visit_description: e.target.value})} rows="2" />
                       </div>
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <label className="text-muted" style={{ fontSize: '0.8rem' }}>Reporting</label>
+                        <textarea className="form-control form-control-sm" value={editForm.reporting} onChange={e => setEditForm({...editForm, reporting: e.target.value})} rows="2" placeholder="Enter reporting notes..." />
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -870,6 +1114,23 @@ export default function DashboardPage() {
                     {selectedOrder.patients?.visit_description && (
                       <p className="visit-desc" style={{ marginTop: '0.75rem' }}>"{selectedOrder.patients.visit_description}"</p>
                     )}
+
+                    {/* Reporting - Editable by both admin and receptionist */}
+                    <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
+                      <label className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Reporting</label>
+                      <textarea 
+                        className="form-control form-control-sm"
+                        value={editForm.reporting}
+                        onChange={e => setEditForm({...editForm, reporting: e.target.value})}
+                        onBlur={() => handleReportingSave(editForm.reporting)}
+                        rows="3"
+                        placeholder="Enter reporting notes for this patient..."
+                        style={{ fontSize: '0.875rem', resize: 'vertical' }}
+                      />
+                      <span className="text-muted" style={{ fontSize: '0.72rem', display: 'block', marginTop: '3px' }}>
+                        Reporting auto-saves when you click outside this box.
+                      </span>
+                    </div>
                   </>
                 )}
               </div>
