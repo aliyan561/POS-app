@@ -37,6 +37,9 @@ export default function DashboardPage() {
     gender: '',
     referred_by: '',
     reporting: '',
+    film: false,
+    image: false,
+    report: false,
     final_total_pkr: 0,
     discount_applied_pkr: 0,
     injections_cost_pkr: 0,
@@ -80,7 +83,10 @@ export default function DashboardPage() {
           age,
           gender,
           referred_by,
-          reporting
+          reporting,
+          film,
+          image,
+          report
         ),
         order_items (
           quantity,
@@ -179,6 +185,9 @@ export default function DashboardPage() {
       gender: order.patients?.gender || '',
       referred_by: order.patients?.referred_by || '',
       reporting: order.patients?.reporting || '',
+      film: order.patients?.film || false,
+      image: order.patients?.image || false,
+      report: order.patients?.report || false,
       final_total_pkr: order.final_total_pkr || 0,
       discount_applied_pkr: order.discount_applied_pkr || 0,
       injections_cost_pkr: order.injections_cost_pkr || 0,
@@ -225,7 +234,10 @@ export default function DashboardPage() {
         age: editForm.age,
         gender: editForm.gender,
         referred_by: editForm.referred_by,
-        reporting: editForm.reporting
+        reporting: editForm.reporting,
+        film: editForm.film,
+        image: editForm.image,
+        report: editForm.report
       };
 
       const orderUpdate = {
@@ -421,6 +433,13 @@ export default function DashboardPage() {
             <div>
               <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Referred By</div>
               <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 2px;">${escapeHtml(patient.referred_by) || 'Self / Walk-in'}</div>
+            </div>
+            <div style="grid-column: span 2;">
+              <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 8px;">
+                ${patient.film ? '✓ Film &nbsp;&nbsp;' : ''}
+                ${patient.image ? '✓ Image &nbsp;&nbsp;' : ''}
+                ${patient.report ? '✓ Report' : ''}
+              </div>
             </div>
             <div style="grid-column: span 2;">
               <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Visit Description</div>
@@ -1092,6 +1111,20 @@ export default function DashboardPage() {
                         <label className="text-muted" style={{ fontSize: '0.8rem' }}>Reporting</label>
                         <textarea className="form-control form-control-sm" value={editForm.reporting} onChange={e => setEditForm({...editForm, reporting: e.target.value})} rows="2" placeholder="Enter reporting notes..." />
                       </div>
+                      <div className="form-group" style={{ display: 'flex', gap: '1rem', marginTop: '1rem', marginBottom: '0.5rem', gridColumn: '1 / -1' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
+                          <input type="checkbox" checked={editForm.film} onChange={e => setEditForm({...editForm, film: e.target.checked})} style={{ width: '16px', height: '16px' }} />
+                          Film
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
+                          <input type="checkbox" checked={editForm.image} onChange={e => setEditForm({...editForm, image: e.target.checked})} style={{ width: '16px', height: '16px' }} />
+                          Image
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
+                          <input type="checkbox" checked={editForm.report} onChange={e => setEditForm({...editForm, report: e.target.checked})} style={{ width: '16px', height: '16px' }} />
+                          Report
+                        </label>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -1109,6 +1142,12 @@ export default function DashboardPage() {
                         {selectedOrder.patients?.gender && <div className="text-muted" style={{ marginBottom: '4px' }}>Sex: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.gender}</strong></div>}
                         {selectedOrder.patients?.referred_by && <div className="text-muted" style={{ marginBottom: '4px' }}>Ref: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.referred_by}</strong></div>}
                       </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '15px', marginTop: '8px', fontWeight: 'bold' }}>
+                      {selectedOrder.patients?.film && <span>✓ Film</span>}
+                      {selectedOrder.patients?.image && <span>✓ Image</span>}
+                      {selectedOrder.patients?.report && <span>✓ Report</span>}
                     </div>
                     
                     {selectedOrder.patients?.visit_description && (
@@ -1233,6 +1272,11 @@ export default function DashboardPage() {
                   ))}
                 </tbody>
               </table>
+              <div style={{ margin: '10px 0', fontSize: '13px', display: 'flex', gap: '15px', fontWeight: 'bold' }}>
+                <span>{selectedOrder.patients?.film ? '☑' : '☐'} Film</span>
+                <span>{selectedOrder.patients?.image ? '☑' : '☐'} Image</span>
+                <span>{selectedOrder.patients?.report ? '☑' : '☐'} Report</span>
+              </div>
               <div className="receipt-totals">
                 <p>Subtotal: <span>Rs {Number(selectedOrder.final_total_pkr) + Number(selectedOrder.discount_applied_pkr)}</span></p>
                 <p>Discount: <span>Rs {selectedOrder.discount_applied_pkr}</span></p>

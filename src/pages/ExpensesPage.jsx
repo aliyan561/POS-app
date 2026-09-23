@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabase';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Plus, X, Edit, Users, Award, Tag, Printer, FileText, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, Plus, X, Edit, Users, Award, Tag, Printer, FileText, Download, Search, Briefcase, UserCheck, CreditCard, Clock } from 'lucide-react';
 import { 
   format, 
   parseISO, 
@@ -26,6 +26,12 @@ export default function ExpensesPage() {
   const [allExpenses, setAllExpenses] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Tab state: 'expenses' or 'salaries'
+  const [activeTab, setActiveTab] = useState('expenses');
+
+  // Salaries tab state
+  const [salarySearch, setSalarySearch] = useState('');
 
   // Filters state
   const [dateFilterType, setDateFilterType] = useState('all'); // all, daily, weekly, month
@@ -108,10 +114,11 @@ export default function ExpensesPage() {
       .select('*')
       .order('expense_date', { ascending: false });
 
-    // Fetch employees for salaries
+    // Fetch employees for salaries (full details)
     const { data: employeesData } = await supabase
       .from('employees')
-      .select('id, monthly_salary');
+      .select('id, name, role, monthly_salary, advance_salary')
+      .order('name', { ascending: true });
 
     if (ordersData) setAllOrders(ordersData);
     if (expensesData) setAllExpenses(expensesData);
@@ -167,6 +174,92 @@ export default function ExpensesPage() {
 
   const topCategory1 = topCategories[0] || { category: 'None', amount: 0 };
   const topCategory2 = topCategories[1] || { category: 'None', amount: 0 };
+
+  // ===== SALARIES TAB DATA =====
+  // All salary expenses filtered by date
+  const filteredSalaryExpenses = useMemo(() => {
+    return allExpenses.filter(e => {
+      const passDate = passesDateFilter(e.expense_date);
+      return passDate && (e.category === 'Salaries' || e.category === 'Salary');
+    });
+  }, [allExpenses, dateFilterType, filterMonth]);
+
+  const totalSalaryDisbursed = filteredSalaryExpenses.reduce((sum, e) => sum + Number(e.amount_pkr || 0), 0);
+
+  // Per-employee salary breakdown
+  const employeeSalaryBreakdown = useMemo(() => {
+    const breakdown = allEmployees.map(emp => {
+      const empName = (emp.name || '').toLowerCase().trim();
+      // Match salary expenses to employee by checking if expense title contains employee name
+      const matchedExpenses = filteredSalaryExpenses.filter(exp => {
+        const title = (exp.title || '').toLowerCase();
+        return title.includes(empName) && empName.length > 0;
+      });
+      const totalDisbursed = matchedExpenses.reduce((sum, e) => sum + Number(e.amount_pkr || 0), 0);
+      const monthlySalary = Number(emp.monthly_salary || 0);
+      const balance = monthlySalary - totalDisbursed;
+      const lastPaid = matchedExpenses.length > 0
+        ? matchedExpenses.sort((a, b) => new Date(b.expense_date) - new Date(a.expense_date))[0].expense_date
+        : null;
+
+      let status = 'pending';
+      if (totalDisbursed >= monthlySalary && monthlySalary > 0) status = 'paid';
+      else if (totalDisbursed > 0) status = 'partial';
+
+      return {
+        ...emp,
+        totalDisbursed,
+        balance,
+        status,
+        lastPaid,
+        matchedCount: matchedExpenses.length
+      };
+    });
+
+    // Find unmatched salary expenses
+    const allMatchedIds = new Set();
+    breakdown.forEach(emp => {
+      const empName = (emp.name || '').toLowerCase().trim();
+      filteredSalaryExpenses.forEach(exp => {
+        const title = (exp.title || '').toLowerCase();
+        if (title.includes(empName) && empName.length > 0) {
+          allMatchedIds.add(exp.id);
+        }
+      });
+    });
+    const unmatchedExpenses = filteredSalaryExpenses.filter(e => !allMatchedIds.has(e.id));
+    const unmatchedTotal = unmatchedExpenses.reduce((sum, e) => sum + Number(e.amount_pkr || 0), 0);
+
+    return { employees: breakdown, unmatchedTotal, unmatchedCount: unmatchedExpenses.length };
+  }, [allEmployees, filteredSalaryExpenses]);
+
+  // Filter employees by search in salaries tab
+  const filteredSalaryEmployees = useMemo(() => {
+    if (!salarySearch.trim()) return employeeSalaryBreakdown.employees;
+    const q = salarySearch.toLowerCase();
+    return employeeSalaryBreakdown.employees.filter(emp =>
+      emp.name?.toLowerCase().includes(q) || emp.role?.toLowerCase().includes(q)
+    );
+  }, [employeeSalaryBreakdown, salarySearch]);
+
+  // Count of salary expense records for badge
+  const salaryExpenseCount = filteredSalaryExpenses.length;
+
+  // Handle Pay Salary quick action
+  const handlePaySalary = (emp) => {
+    const currentMonth = format(new Date(), 'MMMM yyyy');
+    setModalMode('add');
+    setCurrentEditId(null);
+    setShowCustomCategory(false);
+    setExpenseForm({
+      title: `Salary - ${emp.name} (${emp.role}) - ${currentMonth}`,
+      category: 'Salaries',
+      amount_pkr: emp.monthly_salary || '',
+      expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      approved_by: ''
+    });
+    setIsModalOpen(true);
+  };
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
@@ -580,22 +673,46 @@ export default function ExpensesPage() {
 
   return (
     <div className="expenses-layout">
-      {/* Top Controls: Category, Timeframe & Month Dropdown */}
+      {/* ===== TAB NAVIGATION ===== */}
+      <div className="expenses-tab-bar mb-4">
+        <button
+          className={`expenses-tab-btn ${activeTab === 'expenses' ? 'active' : ''}`}
+          onClick={() => setActiveTab('expenses')}
+        >
+          <DollarSign size={18} />
+          <span>All Expenses</span>
+        </button>
+        <button
+          className={`expenses-tab-btn ${activeTab === 'salaries' ? 'active' : ''}`}
+          onClick={() => setActiveTab('salaries')}
+        >
+          <Users size={18} />
+          <span>Salaries & Staff Payroll</span>
+          {salaryExpenseCount > 0 && (
+            <span className="tab-badge">{salaryExpenseCount}</span>
+          )}
+        </button>
+      </div>
+
+      {/* ===== SHARED FILTERS: Timeframe & Month ===== */}
       <div className="expenses-controls-advanced mb-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div className="filter-group">
-          <label className="filter-label"><Calendar size={14} /> Category Filter</label>
-          <select
-            className="form-control"
-            value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
-            style={{ width: '200px', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
-          >
-            <option value="All">All Categories</option>
-            {allAvailableCategories.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
+        {activeTab === 'expenses' && (
+          <div className="filter-group">
+            <label className="filter-label"><Calendar size={14} /> Category Filter</label>
+            <select
+              className="form-control"
+              value={filterCategory}
+              onChange={e => setFilterCategory(e.target.value)}
+              style={{ width: '200px', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
+            >
+              <option value="All">All Categories</option>
+              {allAvailableCategories.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {activeTab === 'salaries' && <div />}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div className="filter-group">
@@ -626,173 +743,455 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* Summary Widgets */}
-      <div className="stats-grid mb-4">
-        <div className="stat-card">
-          <div className="stat-icon bg-blue-100 text-blue-600">
-            <TrendingUp size={24} />
-          </div>
-          <div className="stat-details">
-            <span className="stat-label">Total Revenue</span>
-            <span className="stat-value">Rs {totalRevenue.toLocaleString()}</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon bg-red-100 text-red-600">
-            <TrendingDown size={24} />
-          </div>
-          <div className="stat-details">
-            <span className="stat-label">Total Expenses</span>
-            <span className="stat-value">Rs {totalExpenses.toLocaleString()}</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className={`stat-icon ${netProfit >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-            <DollarSign size={24} />
-          </div>
-          <div className="stat-details">
-            <span className="stat-label">Net Profit / Loss</span>
-            <span className={`stat-value ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              Rs {netProfit.toLocaleString()}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Category Breakdown Widgets (Salaries + Top Categories) */}
-      <div className="stats-grid mb-4">
-        <div className="stat-card">
-          <div className="stat-icon bg-purple-100 text-purple-600">
-            <Users size={24} />
-          </div>
-          <div className="stat-details">
-            <span className="stat-label">Total Salaries (Employees)</span>
-            <span className="stat-value">Rs {totalSalariesFromEmployees.toLocaleString()}</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon bg-amber-100 text-amber-600">
-            <Award size={24} />
-          </div>
-          <div className="stat-details">
-            <span className="stat-label">Most Expensed: {topCategory1.category}</span>
-            <span className="stat-value">Rs {topCategory1.amount.toLocaleString()}</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon bg-indigo-100 text-indigo-600">
-            <Tag size={24} />
-          </div>
-          <div className="stat-details">
-            <span className="stat-label">2nd Most Expensed: {topCategory2.category}</span>
-            <span className="stat-value">Rs {topCategory2.amount.toLocaleString()}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Expenses Table */}
-      <div className="card flex-1" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div className="card-header flex-between" style={{ padding: '1.25rem 1.5rem' }}>
-          <span>Expense Transactions</span>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button 
-              className="btn btn-outline"
-              style={{ borderColor: '#059669', color: '#059669', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
-              onClick={() => setIsReportModalOpen(true)}
-              title="Download 1-page financial summary & expenses report"
-            >
-              <FileText size={16} /> Download Report
-            </button>
-            <button className="btn btn-primary add-expense-btn" onClick={handleAddNewClick}>
-              <Plus size={18} /> Log New Expense
-            </button>
-          </div>
-        </div>
-
-        <div className="card-body p-0" style={{ overflowY: 'auto' }}>
-          {isLoading ? (
-            <div className="skeleton-table">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="skeleton-row">
-                  <div className="skeleton-cell skeleton-w-20"></div>
-                  <div className="skeleton-cell skeleton-w-30"></div>
-                  <div className="skeleton-cell skeleton-w-20"></div>
-                  <div className="skeleton-cell skeleton-w-20"></div>
-                </div>
-              ))}
+      {/* ========================================= */}
+      {/* ===== ALL EXPENSES TAB ===== */}
+      {/* ========================================= */}
+      {activeTab === 'expenses' && (
+        <>
+          {/* Summary Widgets */}
+          <div className="stats-grid mb-4">
+            <div className="stat-card">
+              <div className="stat-icon bg-blue-100 text-blue-600">
+                <TrendingUp size={24} />
+              </div>
+              <div className="stat-details">
+                <span className="stat-label">Total Revenue</span>
+                <span className="stat-value">Rs {totalRevenue.toLocaleString()}</span>
+              </div>
             </div>
-          ) : filteredExpenses.length === 0 ? (
-            <div className="empty-state">No expenses recorded for this timeframe.</div>
-          ) : (
-            <div className="table-responsive">
-              <table className="data-table mobile-cards">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Title</th>
-                    <th>Category</th>
-                    <th>Approved By</th>
-                    <th className="text-right">Amount</th>
-                    <th className="text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredExpenses.map(exp => (
-                    <tr key={exp.id}>
-                      <td data-label="Date">
-                        <div className="date-cell">
-                          <Calendar size={14} className="text-muted" />
-                          {format(parseISO(exp.expense_date), 'MMM dd, yyyy - hh:mm a')}
-                        </div>
-                      </td>
-                      <td data-label="Title" className="font-medium text-main">{exp.title}</td>
-                      <td data-label="Category">
-                        <span className={`badge-category cat-${exp.category.toLowerCase().replace(/\s+/g, '-')}`}>
-                          {exp.category}
-                        </span>
-                      </td>
-                      <td data-label="Approved By">
-                        {exp.approved_by ? (
-                          <span className="approved-by-badge">{exp.approved_by}</span>
-                        ) : (
-                          <span className="text-muted" style={{ fontSize: '0.8rem' }}>—</span>
-                        )}
-                      </td>
-                      <td data-label="Amount" className="text-right font-semibold text-danger">
-                        - Rs {exp.amount_pkr.toLocaleString()}
-                      </td>
-                      <td data-label="Actions" className="text-right">
-                        <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
-                          <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem' }} onClick={() => handleEditClick(exp)} title="Edit">
-                            <Edit size={16} />
-                          </button>
-                          <button 
-                            className="btn btn-outline" 
-                            style={{ padding: '0.25rem 0.5rem' }} 
-                            onClick={async () => {
-                              setPrintingExpense(exp);
-                              await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-                              window.print();
-                              setPrintingExpense(null);
-                            }} 
-                            title="Print Voucher"
-                          >
-                            <Printer size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+
+            <div className="stat-card">
+              <div className="stat-icon bg-red-100 text-red-600">
+                <TrendingDown size={24} />
+              </div>
+              <div className="stat-details">
+                <span className="stat-label">Total Expenses</span>
+                <span className="stat-value">Rs {totalExpenses.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className={`stat-icon ${netProfit >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                <DollarSign size={24} />
+              </div>
+              <div className="stat-details">
+                <span className="stat-label">Net Profit / Loss</span>
+                <span className={`stat-value ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  Rs {netProfit.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Category Breakdown Widgets (Salaries + Top Categories) */}
+          <div className="stats-grid mb-4">
+            <div className="stat-card">
+              <div className="stat-icon bg-purple-100 text-purple-600">
+                <Users size={24} />
+              </div>
+              <div className="stat-details">
+                <span className="stat-label">Total Salaries (Employees)</span>
+                <span className="stat-value">Rs {totalSalariesFromEmployees.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon bg-amber-100 text-amber-600">
+                <Award size={24} />
+              </div>
+              <div className="stat-details">
+                <span className="stat-label">Most Expensed: {topCategory1.category}</span>
+                <span className="stat-value">Rs {topCategory1.amount.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon bg-indigo-100 text-indigo-600">
+                <Tag size={24} />
+              </div>
+              <div className="stat-details">
+                <span className="stat-label">2nd Most Expensed: {topCategory2.category}</span>
+                <span className="stat-value">Rs {topCategory2.amount.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Expenses Table */}
+          <div className="card flex-1" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div className="card-header flex-between" style={{ padding: '1.25rem 1.5rem' }}>
+              <span>Expense Transactions</span>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button 
+                  className="btn btn-outline"
+                  style={{ borderColor: '#059669', color: '#059669', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+                  onClick={() => setIsReportModalOpen(true)}
+                  title="Download 1-page financial summary & expenses report"
+                >
+                  <FileText size={16} /> Download Report
+                </button>
+                <button className="btn btn-primary add-expense-btn" onClick={handleAddNewClick}>
+                  <Plus size={18} /> Log New Expense
+                </button>
+              </div>
+            </div>
+
+            <div className="card-body p-0" style={{ overflowY: 'auto' }}>
+              {isLoading ? (
+                <div className="skeleton-table">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="skeleton-row">
+                      <div className="skeleton-cell skeleton-w-20"></div>
+                      <div className="skeleton-cell skeleton-w-30"></div>
+                      <div className="skeleton-cell skeleton-w-20"></div>
+                      <div className="skeleton-cell skeleton-w-20"></div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              ) : filteredExpenses.length === 0 ? (
+                <div className="empty-state">No expenses recorded for this timeframe.</div>
+              ) : (
+                <div className="table-responsive">
+                  <table className="data-table mobile-cards">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Title</th>
+                        <th>Category</th>
+                        <th>Approved By</th>
+                        <th className="text-right">Amount</th>
+                        <th className="text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredExpenses.map(exp => (
+                        <tr key={exp.id}>
+                          <td data-label="Date">
+                            <div className="date-cell">
+                              <Calendar size={14} className="text-muted" />
+                              {format(parseISO(exp.expense_date), 'MMM dd, yyyy - hh:mm a')}
+                            </div>
+                          </td>
+                          <td data-label="Title" className="font-medium text-main">{exp.title}</td>
+                          <td data-label="Category">
+                            <span className={`badge-category cat-${exp.category.toLowerCase().replace(/\s+/g, '-')}`}>
+                              {exp.category}
+                            </span>
+                          </td>
+                          <td data-label="Approved By">
+                            {exp.approved_by ? (
+                              <span className="approved-by-badge">{exp.approved_by}</span>
+                            ) : (
+                              <span className="text-muted" style={{ fontSize: '0.8rem' }}>—</span>
+                            )}
+                          </td>
+                          <td data-label="Amount" className="text-right font-semibold text-danger">
+                            - Rs {exp.amount_pkr.toLocaleString()}
+                          </td>
+                          <td data-label="Actions" className="text-right">
+                            <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                              <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem' }} onClick={() => handleEditClick(exp)} title="Edit">
+                                <Edit size={16} />
+                              </button>
+                              <button 
+                                className="btn btn-outline" 
+                                style={{ padding: '0.25rem 0.5rem' }} 
+                                onClick={async () => {
+                                  setPrintingExpense(exp);
+                                  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                                  window.print();
+                                  setPrintingExpense(null);
+                                }} 
+                                title="Print Voucher"
+                              >
+                                <Printer size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        </>
+      )}
+
+      {/* ========================================= */}
+      {/* ===== SALARIES & STAFF PAYROLL TAB ===== */}
+      {/* ========================================= */}
+      {activeTab === 'salaries' && (
+        <>
+          {/* Salary KPI Summary Cards */}
+          <div className="stats-grid mb-4">
+            <div className="stat-card">
+              <div className="stat-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+                <CreditCard size={24} />
+              </div>
+              <div className="stat-details">
+                <span className="stat-label">Total Salaries Disbursed</span>
+                <span className="stat-value" style={{ color: '#059669' }}>Rs {totalSalaryDisbursed.toLocaleString()}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{salaryExpenseCount} payment{salaryExpenseCount !== 1 ? 's' : ''} recorded</span>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon bg-purple-100 text-purple-600">
+                <Briefcase size={24} />
+              </div>
+              <div className="stat-details">
+                <span className="stat-label">Monthly Payroll Commitment</span>
+                <span className="stat-value">Rs {totalSalariesFromEmployees.toLocaleString()}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{allEmployees.length} staff on payroll</span>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon" style={{ background: totalSalariesFromEmployees - totalSalaryDisbursed > 0 ? '#fef2f2' : '#ecfdf5', color: totalSalariesFromEmployees - totalSalaryDisbursed > 0 ? '#dc2626' : '#059669' }}>
+                <Clock size={24} />
+              </div>
+              <div className="stat-details">
+                <span className="stat-label">Remaining / Pending</span>
+                <span className="stat-value" style={{ color: totalSalariesFromEmployees - totalSalaryDisbursed > 0 ? '#dc2626' : '#059669' }}>
+                  Rs {Math.max(0, totalSalariesFromEmployees - totalSalaryDisbursed).toLocaleString()}
+                </span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {totalSalaryDisbursed >= totalSalariesFromEmployees ? 'All salaries covered ✓' : 'Outstanding balance'}
+                </span>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+                <UserCheck size={24} />
+              </div>
+              <div className="stat-details">
+                <span className="stat-label">Staff on Payroll</span>
+                <span className="stat-value">{allEmployees.length}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {employeeSalaryBreakdown.employees.filter(e => e.status === 'paid').length} paid, {employeeSalaryBreakdown.employees.filter(e => e.status === 'pending').length} pending
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Staff Salary Allocations - "To Whom" Table */}
+          <div className="card mb-4" style={{ overflow: 'hidden' }}>
+            <div className="card-header flex-between" style={{ padding: '1.25rem 1.5rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={18} /> Staff Salary Allocations
+              </span>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div style={{ position: 'relative' }}>
+                  <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Search staff..."
+                    value={salarySearch}
+                    onChange={e => setSalarySearch(e.target.value)}
+                    style={{ paddingLeft: '32px', width: '200px', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="card-body p-0" style={{ overflowX: 'auto' }}>
+              {isLoading ? (
+                <div className="skeleton-table" style={{ padding: '1rem' }}>
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="skeleton-row">
+                      <div className="skeleton-cell skeleton-w-20"></div>
+                      <div className="skeleton-cell skeleton-w-30"></div>
+                      <div className="skeleton-cell skeleton-w-20"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <table className="data-table salary-staff-table">
+                  <thead>
+                    <tr>
+                      <th>Staff Member</th>
+                      <th className="text-right">Monthly Salary</th>
+                      <th className="text-right">Total Disbursed</th>
+                      <th className="text-center">Status</th>
+                      <th>Last Paid</th>
+                      <th className="text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSalaryEmployees.map(emp => (
+                      <tr key={emp.id} className="salary-staff-row">
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div className="salary-avatar">
+                              {(emp.name || '?')[0].toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-medium text-main">{emp.name}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{emp.role}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-right font-medium">Rs {Number(emp.monthly_salary || 0).toLocaleString()}</td>
+                        <td className="text-right font-semibold" style={{ color: emp.totalDisbursed > 0 ? '#059669' : 'var(--text-muted)' }}>
+                          {emp.totalDisbursed > 0 ? `Rs ${emp.totalDisbursed.toLocaleString()}` : '—'}
+                        </td>
+                        <td className="text-center">
+                          <span className={`salary-status-badge status-${emp.status}`}>
+                            {emp.status === 'paid' ? '✓ Paid in Full' : emp.status === 'partial' ? `⏳ Partial (Rs ${emp.balance.toLocaleString()} left)` : '⏸ Pending'}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                          {emp.lastPaid ? format(parseISO(emp.lastPaid), 'MMM dd, yyyy') : '—'}
+                        </td>
+                        <td className="text-right">
+                          <button
+                            className="btn btn-sm salary-pay-btn"
+                            onClick={() => handlePaySalary(emp)}
+                            title={`Pay salary for ${emp.name}`}
+                          >
+                            <Plus size={14} /> Pay Salary
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {/* Unassigned / Other Salary Expenses */}
+                    {employeeSalaryBreakdown.unmatchedCount > 0 && (
+                      <tr className="salary-staff-row salary-unmatched-row">
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div className="salary-avatar" style={{ background: '#f1f5f9', color: '#64748b' }}>?</div>
+                            <div>
+                              <div className="font-medium" style={{ color: '#64748b' }}>Other / Unassigned Salaries</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{employeeSalaryBreakdown.unmatchedCount} payment{employeeSalaryBreakdown.unmatchedCount !== 1 ? 's' : ''}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-right">—</td>
+                        <td className="text-right font-semibold" style={{ color: '#ea580c' }}>
+                          Rs {employeeSalaryBreakdown.unmatchedTotal.toLocaleString()}
+                        </td>
+                        <td className="text-center"><span className="salary-status-badge status-partial">Unassigned</span></td>
+                        <td>—</td>
+                        <td></td>
+                      </tr>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="salary-total-row">
+                      <td className="font-semibold text-main">Grand Total</td>
+                      <td className="text-right font-semibold">Rs {totalSalariesFromEmployees.toLocaleString()}</td>
+                      <td className="text-right font-semibold" style={{ color: '#059669' }}>Rs {totalSalaryDisbursed.toLocaleString()}</td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {/* Salary Disbursements Audit Log */}
+          <div className="card flex-1" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div className="card-header flex-between" style={{ padding: '1.25rem 1.5rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={18} /> Salary Disbursement Vouchers
+              </span>
+              <button className="btn btn-primary add-expense-btn" onClick={() => {
+                setModalMode('add');
+                setCurrentEditId(null);
+                setShowCustomCategory(false);
+                setExpenseForm({
+                  title: '',
+                  category: 'Salaries',
+                  amount_pkr: '',
+                  expense_date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+                  approved_by: ''
+                });
+                setIsModalOpen(true);
+              }}>
+                <Plus size={18} /> Log Salary Payment
+              </button>
+            </div>
+
+            <div className="card-body p-0" style={{ overflowY: 'auto' }}>
+              {isLoading ? (
+                <div className="skeleton-table">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="skeleton-row">
+                      <div className="skeleton-cell skeleton-w-20"></div>
+                      <div className="skeleton-cell skeleton-w-30"></div>
+                      <div className="skeleton-cell skeleton-w-20"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredSalaryExpenses.length === 0 ? (
+                <div className="empty-state">No salary payments recorded for this timeframe.</div>
+              ) : (
+                <div className="table-responsive">
+                  <table className="data-table mobile-cards">
+                    <thead>
+                      <tr>
+                        <th>Date & Time</th>
+                        <th>Recipient / Description</th>
+                        <th className="text-right">Amount</th>
+                        <th>Approved By</th>
+                        <th className="text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSalaryExpenses.map(exp => (
+                        <tr key={exp.id}>
+                          <td data-label="Date">
+                            <div className="date-cell">
+                              <Calendar size={14} className="text-muted" />
+                              {format(parseISO(exp.expense_date), 'MMM dd, yyyy - hh:mm a')}
+                            </div>
+                          </td>
+                          <td data-label="Recipient" className="font-medium text-main">{exp.title}</td>
+                          <td data-label="Amount" className="text-right font-semibold text-danger">
+                            - Rs {Number(exp.amount_pkr).toLocaleString()}
+                          </td>
+                          <td data-label="Approved By">
+                            {exp.approved_by ? (
+                              <span className="approved-by-badge">{exp.approved_by}</span>
+                            ) : (
+                              <span className="text-muted" style={{ fontSize: '0.8rem' }}>—</span>
+                            )}
+                          </td>
+                          <td data-label="Actions" className="text-right">
+                            <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                              <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem' }} onClick={() => handleEditClick(exp)} title="Edit">
+                                <Edit size={16} />
+                              </button>
+                              <button 
+                                className="btn btn-outline" 
+                                style={{ padding: '0.25rem 0.5rem' }} 
+                                onClick={async () => {
+                                  setPrintingExpense(exp);
+                                  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                                  window.print();
+                                  setPrintingExpense(null);
+                                }} 
+                                title="Print Voucher"
+                              >
+                                <Printer size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Add Expense Modal */}
       {isModalOpen && (
@@ -881,6 +1280,39 @@ export default function ExpensesPage() {
                 </div>
               </div>
 
+              {/* Employee Picker - shown when category is Salaries */}
+              {(expenseForm.category === 'Salaries' || expenseForm.category === 'Salary') && allEmployees.length > 0 && (
+                <div className="form-group">
+                  <label className="form-label">👤 Staff Member / Recipient</label>
+                  <select
+                    className="form-control"
+                    value=""
+                    onChange={e => {
+                      const empId = e.target.value;
+                      if (!empId) return;
+                      const emp = allEmployees.find(em => em.id === empId);
+                      if (emp) {
+                        const currentMonth = format(new Date(), 'MMMM yyyy');
+                        setExpenseForm({
+                          ...expenseForm,
+                          title: `Salary - ${emp.name} (${emp.role}) - ${currentMonth}`,
+                          amount_pkr: emp.monthly_salary || expenseForm.amount_pkr
+                        });
+                      }
+                    }}
+                    style={{ borderColor: '#a78bfa' }}
+                  >
+                    <option value="">Select staff to auto-fill...</option>
+                    {allEmployees.map(emp => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name} ({emp.role}) — Rs {Number(emp.monthly_salary || 0).toLocaleString()}
+                      </option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Selecting an employee auto-fills the title and amount</p>
+                </div>
+              )}
+
               <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
                   <label className="form-label">Date & Time</label>
@@ -903,6 +1335,7 @@ export default function ExpensesPage() {
                   />
                 </div>
               </div>
+
 
               <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
                 <button

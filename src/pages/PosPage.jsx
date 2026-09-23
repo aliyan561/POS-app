@@ -9,7 +9,7 @@ export default function PosPage() {
   const { role } = useAuth();
   const [services, setServices] = useState([]);
   const [basket, setBasket] = useState([]);
-  const [patient, setPatient] = useState({ name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '' });
+  const [patient, setPatient] = useState({ name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', film: false, image: false, report: false });
   const [phoneError, setPhoneError] = useState('');
   const [discountValue, setDiscountValue] = useState('');
   const [discountType, setDiscountType] = useState('amount');
@@ -68,7 +68,7 @@ export default function PosPage() {
         setPrintMode('both');
         setOrderSuccess(false);
         setReceiptId(null);
-        setPatient({ name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '' });
+        setPatient({ name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', film: false, image: false, report: false });
         setBasket([]);
         setDiscountValue('');
         setDiscountType('amount');
@@ -234,7 +234,10 @@ export default function PosPage() {
           visit_description: patient.visit_description,
           age: patient.age ? Number(patient.age) : null,
           gender: patient.gender || null,
-          referred_by: patient.referred_by || null
+          referred_by: patient.referred_by || null,
+          film: patient.film,
+          image: patient.image,
+          report: patient.report
         }])
         .select()
         .single();
@@ -326,6 +329,11 @@ export default function PosPage() {
                     ))}
                   </tbody>
                 </table>
+                <div style={{ margin: '10px 0', fontSize: '13px', display: 'flex', gap: '15px', fontWeight: 'bold' }}>
+                  <span>{patient.film ? '☑' : '☐'} Film</span>
+                  <span>{patient.image ? '☑' : '☐'} Image</span>
+                  <span>{patient.report ? '☑' : '☐'} Report</span>
+                </div>
                 <div className="receipt-totals">
                   <p>Subtotal: <span>Rs {subtotal}</span></p>
                   <p>Discount: <span>Rs {Math.round(discountAmount)} {discountType === 'percentage' && discountValue ? `(${discountValue}%)` : ''}</span></p>
@@ -453,6 +461,20 @@ export default function PosPage() {
                   onChange={e => setPatient({...patient, referred_by: e.target.value})}
                 />
               </div>
+            </div>
+            <div className="form-group" style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', marginBottom: '1rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
+                <input type="checkbox" checked={patient.film} onChange={e => setPatient({...patient, film: e.target.checked})} style={{ width: '16px', height: '16px' }} />
+                Film
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
+                <input type="checkbox" checked={patient.image} onChange={e => setPatient({...patient, image: e.target.checked})} style={{ width: '16px', height: '16px' }} />
+                Image
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
+                <input type="checkbox" checked={patient.report} onChange={e => setPatient({...patient, report: e.target.checked})} style={{ width: '16px', height: '16px' }} />
+                Report
+              </label>
             </div>
             <div className="form-group">
               <label className="form-label">Search Services</label>
