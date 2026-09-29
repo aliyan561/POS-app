@@ -9,7 +9,7 @@ export default function PosPage() {
   const { role } = useAuth();
   const [services, setServices] = useState([]);
   const [basket, setBasket] = useState([]);
-  const [patient, setPatient] = useState({ name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', film: false, image: false, report: false });
+  const [patient, setPatient] = useState({ salutation: '', name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', hospital: '', film: false, image: false, report: false });
   const [phoneError, setPhoneError] = useState('');
   const [discountValue, setDiscountValue] = useState('');
   const [discountType, setDiscountType] = useState('amount');
@@ -68,7 +68,7 @@ export default function PosPage() {
         setPrintMode('both');
         setOrderSuccess(false);
         setReceiptId(null);
-        setPatient({ name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', film: false, image: false, report: false });
+        setPatient({ salutation: '', name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', hospital: '', film: false, image: false, report: false });
         setBasket([]);
         setDiscountValue('');
         setDiscountType('amount');
@@ -229,12 +229,14 @@ export default function PosPage() {
       const { data: patientData, error: patientError } = await supabase
         .from('patients')
         .insert([{
+          salutation: patient.salutation || null,
           name: patient.name,
           phone_number: patient.phone_number,
           visit_description: patient.visit_description,
           age: patient.age ? Number(patient.age) : null,
           gender: patient.gender || null,
           referred_by: patient.referred_by || null,
+          hospital: patient.hospital || null,
           film: patient.film,
           image: patient.image,
           report: patient.report
@@ -271,7 +273,7 @@ export default function PosPage() {
         throw itemsError;
       }
 
-      const generatedReceiptId = orderData.id.substring(0, 8).toUpperCase();
+      const generatedReceiptId = `PDC ${orderData.receipt_number || orderData.id.substring(0, 8).toUpperCase()}`;
       setReceiptId(generatedReceiptId);
       setOrderSuccess(true);
       
@@ -301,15 +303,16 @@ export default function PosPage() {
                 <div className="receipt-details">
                   <p><strong>Receipt #:</strong> {receiptId || 'Pending'}</p>
                   <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
-                  <p><strong>Patient:</strong> {patient.name || 'N/A'}</p>
+                  <p><strong>Patient:</strong> {patient.salutation ? `${patient.salutation} ` : ''}{patient.name || 'N/A'}</p>
                   {(patient.age || patient.gender) && (
                     <p>
                       {patient.age && <span><strong>Age:</strong> {patient.age} &nbsp;&nbsp;</span>}
                       {patient.gender && <span><strong>Gender:</strong> {patient.gender}</span>}
                     </p>
                   )}
-                  {patient.referred_by && <p><strong>Referred by:</strong> {patient.referred_by}</p>}
                   {patient.phone_number && <p><strong>Phone:</strong> {patient.phone_number}</p>}
+                  {patient.referred_by && <p><strong>Referred by:</strong> {patient.referred_by}</p>}
+                  {patient.hospital && <p><strong>Hospital:</strong> {patient.hospital}</p>}
                 </div>
                 <table className="receipt-items">
                   <thead>
@@ -394,17 +397,34 @@ export default function PosPage() {
       {/* Column 2: Patient & Services */}
       <div className="pos-middle-col no-print">
         <div className="card mb-4">
-          <div className="card-header">Patient Details</div>
+          <div className="card-header">PATIENT BOOKING</div>
           <div className="card-body">
-            <div className="form-group">
-              <label className="form-label">Full Name *</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                placeholder="John Doe"
-                value={patient.name}
-                onChange={e => setPatient({...patient, name: e.target.value})}
-              />
+            <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ flex: '0 0 120px' }}>
+                <label className="form-label">Salutation</label>
+                <select
+                  className="form-control"
+                  value={patient.salutation}
+                  onChange={e => setPatient({...patient, salutation: e.target.value})}
+                >
+                  <option value="">--</option>
+                  <option value="Mr.">Mr.</option>
+                  <option value="Mrs.">Mrs.</option>
+                  <option value="Ms.">Ms.</option>
+                  <option value="Dr.">Dr.</option>
+                  <option value="Prof.">Prof.</option>
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="form-label">Full Name *</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="John Doe"
+                  value={patient.name}
+                  onChange={e => setPatient({...patient, name: e.target.value})}
+                />
+              </div>
             </div>
             <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
               <div style={{ flex: 1 }}>
@@ -453,14 +473,24 @@ export default function PosPage() {
               </div>
               <div style={{ flex: 1 }}>
                 <label className="form-label">Referred By</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
+                <input
+                  type="text"
+                  className="form-control"
                   placeholder="Dr. Smith"
                   value={patient.referred_by}
                   onChange={e => setPatient({...patient, referred_by: e.target.value})}
                 />
               </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Hospital</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="e.g. Civil Hospital"
+                value={patient.hospital}
+                onChange={e => setPatient({...patient, hospital: e.target.value})}
+              />
             </div>
             <div className="form-group" style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', marginBottom: '1rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
