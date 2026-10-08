@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Wallet, LogOut, BarChart3, Users, ClipboardList, Bell, Menu, X, Package } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Wallet, LogOut, BarChart3, Users, ClipboardList, Bell, Menu, X, Package, Stethoscope } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import PosPage from './pages/PosPage';
@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import EmployeesPage from './pages/EmployeesPage';
 import AttendancePage from './pages/AttendancePage';
 import InventoryPage from './pages/InventoryPage';
+import ReferredByPage from './pages/ReferredByPage';
 import logo from '../assets/logo-transparent-bg.png';
 import { useAuth } from './AuthContext';
 
@@ -180,6 +181,13 @@ function App() {
                   <Package size={20} />
                   <span>Inventory</span>
                 </NavLink>
+                <NavLink 
+                  to="/referred-by" 
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                >
+                  <Stethoscope size={20} />
+                  <span>Referred By</span>
+                </NavLink>
               </>
             )}
           </nav>
@@ -244,6 +252,14 @@ function App() {
                 element={
                   role === 'admin' 
                     ? <InventoryPage /> 
+                    : <Navigate to="/dashboard" replace />
+                } 
+              />
+              <Route 
+                path="/referred-by" 
+                element={
+                  role === 'admin' 
+                    ? <ReferredByPage /> 
                     : <Navigate to="/dashboard" replace />
                 } 
               />

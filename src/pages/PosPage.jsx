@@ -31,10 +31,25 @@ export default function PosPage() {
   const [subTypeModalOpen, setSubTypeModalOpen] = useState(false);
   const [selectedParentService, setSelectedParentService] = useState(null);
   const [serviceSearch, setServiceSearch] = useState('');
+  const [referredBySuggestions, setReferredBySuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     fetchServices();
+    fetchReferredBySuggestions();
   }, []);
+
+  async function fetchReferredBySuggestions() {
+    const { data } = await supabase
+      .from('patients')
+      .select('referred_by')
+      .not('referred_by', 'is', null)
+      .neq('referred_by', '');
+    if (data) {
+      const unique = [...new Set(data.map(r => r.referred_by.trim()).filter(Boolean))].sort();
+      setReferredBySuggestions(unique);
+    }
+  }
 
   async function fetchServices() {
     setIsLoadingServices(true);
@@ -73,6 +88,7 @@ export default function PosPage() {
         setDiscountValue('');
         setDiscountType('amount');
         setPaymentMethod('Cash');
+        fetchReferredBySuggestions(); // refresh suggestions for any newly-typed name
       };
       
       runPrintSequence();
@@ -471,15 +487,65 @@ export default function PosPage() {
                 />
                 {phoneError && <div className="text-danger" style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: '0.25rem' }}>{phoneError}</div>}
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, position: 'relative' }}>
                 <label className="form-label">Referred By</label>
                 <input
                   type="text"
                   className="form-control"
                   placeholder="Dr. Smith"
                   value={patient.referred_by}
-                  onChange={e => setPatient({...patient, referred_by: e.target.value})}
+                  autoComplete="off"
+                  onChange={e => {
+                    setPatient({...patient, referred_by: e.target.value});
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                 />
+                {showSuggestions && patient.referred_by.trim() && (() => {
+                  const filtered = referredBySuggestions.filter(s =>
+                    s.toLowerCase().includes(patient.referred_by.toLowerCase())
+                  );
+                  return filtered.length > 0 ? (
+                    <ul style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-sm)',
+                      boxShadow: 'var(--shadow-md)',
+                      zIndex: 999,
+                      maxHeight: '180px',
+                      overflowY: 'auto',
+                      listStyle: 'none',
+                      padding: '0.25rem 0',
+                      margin: '2px 0 0 0'
+                    }}>
+                      {filtered.map(name => (
+                        <li
+                          key={name}
+                          onMouseDown={() => {
+                            setPatient({...patient, referred_by: name});
+                            setShowSuggestions(false);
+                          }}
+                          style={{
+                            padding: '0.5rem 0.875rem',
+                            fontSize: '0.9rem',
+                            cursor: 'pointer',
+                            color: 'var(--text-main)',
+                            transition: 'background 0.15s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-light)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          {name}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
               </div>
             </div>
             <div className="form-group">
