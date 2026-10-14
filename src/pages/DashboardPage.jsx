@@ -37,6 +37,8 @@ export default function DashboardPage() {
     gender: '',
     referred_by: '',
     reporting: '',
+    department: '',
+    history: '',
     film: false,
     image: false,
     report: false,
@@ -77,6 +79,7 @@ export default function DashboardPage() {
         reporting_cost_pkr,
         patients (
           id,
+          mr_number,
           name,
           phone_number,
           visit_description,
@@ -84,6 +87,8 @@ export default function DashboardPage() {
           gender,
           referred_by,
           reporting,
+          department,
+          history,
           film,
           image,
           report
@@ -148,8 +153,9 @@ export default function DashboardPage() {
         const query = searchQuery.toLowerCase();
         const name = order.patients?.name?.toLowerCase() || '';
         const phone = order.patients?.phone_number?.toLowerCase() || '';
-        const shortId = order.id.substring(0, 8).toLowerCase();
-        passesSearch = name.includes(query) || phone.includes(query) || shortId.includes(query);
+        const mrNum = String(order.patients?.mr_number || '').toLowerCase();
+        const formattedMr = mrNum ? `mr-${mrNum}` : '';
+        passesSearch = name.includes(query) || phone.includes(query) || mrNum.includes(query) || (formattedMr && formattedMr.includes(query));
       }
 
       return passesDate && passesService && passesSearch;
@@ -185,6 +191,8 @@ export default function DashboardPage() {
       gender: order.patients?.gender || '',
       referred_by: order.patients?.referred_by || '',
       reporting: order.patients?.reporting || '',
+      department: order.patients?.department || '',
+      history: order.patients?.history || '',
       film: order.patients?.film || false,
       image: order.patients?.image || false,
       report: order.patients?.report || false,
@@ -235,6 +243,8 @@ export default function DashboardPage() {
         gender: editForm.gender,
         referred_by: editForm.referred_by,
         reporting: editForm.reporting,
+        department: editForm.department,
+        history: editForm.history,
         film: editForm.film,
         image: editForm.image,
         report: editForm.report
@@ -354,7 +364,7 @@ export default function DashboardPage() {
 
     try {
       const patient = selectedOrder.patients || {};
-      const receiptId = selectedOrder.id ? selectedOrder.id.substring(0, 8).toUpperCase() : 'N/A';
+      const receiptId = selectedOrder.patients?.mr_number ? `MR-${selectedOrder.patients.mr_number}` : 'N/A';
       
       let orderDate = 'N/A';
       try {
@@ -409,7 +419,7 @@ export default function DashboardPage() {
           <h1 style="font-size: 26px; color: #1d4ed8; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 4px 0;">Prime Diagnostic Centre</h1>
           <p style="font-size: 12px; color: #64748b; margin: 0 0 12px 0; line-height: 1.4;">0314-1117447 &bull; Civil Hospital Road, Off M.A. Jinnah Road, Karachi</p>
           <div style="display: inline-block; background: #eff6ff; border: 1px solid #bfdbfe; padding: 6px 18px; border-radius: 20px; font-size: 12px; color: #1e40af; font-weight: 600;">
-            Receipt # ${receiptId} &nbsp;&bull;&nbsp; ${orderDate}
+            ${receiptId} &nbsp;&bull;&nbsp; ${orderDate}
           </div>
         </div>
 
@@ -434,6 +444,10 @@ export default function DashboardPage() {
               <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Referred By</div>
               <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 2px;">${escapeHtml(patient.referred_by) || 'Self / Walk-in'}</div>
             </div>
+            <div>
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Department</div>
+              <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 2px;">${escapeHtml(patient.department) || 'N/A'}</div>
+            </div>
             <div style="grid-column: span 2;">
               <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 8px;">
                 ${patient.film ? '✓ Film &nbsp;&nbsp;' : ''}
@@ -444,6 +458,18 @@ export default function DashboardPage() {
             <div style="grid-column: span 2;">
               <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Visit Description</div>
               <div style="font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 2px;">${escapeHtml(patient.visit_description) || 'N/A'}</div>
+            </div>
+            <div style="grid-column: span 3;">
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">History</div>
+              <div style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 8px; margin-top: 4px; min-height: 52px;">
+                ${patient.history && patient.history.trim() ? `
+                  <div style="font-size: 13px; font-weight: 500; color: #0f172a; white-space: pre-wrap; line-height: 1.3;">${escapeHtml(patient.history)}</div>
+                ` : `
+                  <div style="border-bottom: 1px dotted #94a3b8; height: 16px;"></div>
+                  <div style="border-bottom: 1px dotted #94a3b8; height: 16px;"></div>
+                  <div style="height: 16px;"></div>
+                `}
+              </div>
             </div>
           </div>
         </div>
@@ -772,7 +798,7 @@ export default function DashboardPage() {
               <Search size={18} className="search-icon" />
               <input 
                 type="text" 
-                placeholder="Search by name or phone..." 
+                placeholder="Search by name, phone, or MR#..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -806,7 +832,7 @@ export default function DashboardPage() {
                   <thead>
                     <tr>
                       <th>Date</th>
-                      <th>Receipt #</th>
+                      <th>MR #</th>
                       <th>Patient Name</th>
                       <th>Visit Description</th>
                       <th className="text-right">Order Total</th>
@@ -822,9 +848,9 @@ export default function DashboardPage() {
                               {format(parseISO(order.order_date), 'MMM dd, yyyy - hh:mm a')}
                             </div>
                           </td>
-                          <td data-label="Receipt #">
-                            <span style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>
-                              {order.id.substring(0, 8).toUpperCase()}
+                          <td data-label="MR #">
+                            <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--primary)' }}>
+                              {order.patients?.mr_number ? `MR-${order.patients.mr_number}` : '—'}
                             </span>
                           </td>
                           <td data-label="Patient Name">
@@ -942,7 +968,7 @@ export default function DashboardPage() {
                         <Calendar size={12} />
                         {format(parseISO(order.order_date), 'MMM dd, yyyy • hh:mm a')}
                       </span>
-                      <span className="patient-card-receipt">#{order.id.substring(0, 8).toUpperCase()}</span>
+                      <span className="patient-card-receipt">{order.patients?.mr_number ? `MR-${order.patients.mr_number}` : `#${order.id.substring(0, 8).toUpperCase()}`}</span>
                     </div>
                     {order.patients?.visit_description && (
                       <div className="patient-card-desc">{order.patients.visit_description}</div>
@@ -1103,9 +1129,17 @@ export default function DashboardPage() {
                         <label className="text-muted" style={{ fontSize: '0.8rem' }}>Referred By</label>
                         <input className="form-control form-control-sm" value={editForm.referred_by} onChange={e => setEditForm({...editForm, referred_by: e.target.value})} />
                       </div>
+                      <div>
+                        <label className="text-muted" style={{ fontSize: '0.8rem' }}>Department / Specialty</label>
+                        <input className="form-control form-control-sm" value={editForm.department} onChange={e => setEditForm({...editForm, department: e.target.value})} placeholder="e.g. Neuro, Cardio" />
+                      </div>
                       <div style={{ gridColumn: '1 / -1' }}>
                         <label className="text-muted" style={{ fontSize: '0.8rem' }}>Visit Description</label>
                         <textarea className="form-control form-control-sm" value={editForm.visit_description} onChange={e => setEditForm({...editForm, visit_description: e.target.value})} rows="2" />
+                      </div>
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <label className="text-muted" style={{ fontSize: '0.8rem' }}>History</label>
+                        <textarea className="form-control form-control-sm" value={editForm.history} onChange={e => setEditForm({...editForm, history: e.target.value})} rows="3" placeholder="Enter patient history notes..." />
                       </div>
                       <div style={{ gridColumn: '1 / -1' }}>
                         <label className="text-muted" style={{ fontSize: '0.8rem' }}>Reporting</label>
@@ -1133,6 +1167,7 @@ export default function DashboardPage() {
                       <div>
                         <h3 style={{ marginBottom: '4px' }}>{selectedOrder.patients?.name || 'Unknown'}</h3>
                         <p className="text-muted" style={{ marginBottom: '4px' }}>
+                          {selectedOrder.patients?.mr_number && <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--primary)', marginRight: '8px' }}>MR-{selectedOrder.patients.mr_number}</span>}
                           {format(parseISO(selectedOrder.order_date), 'MMMM dd, yyyy - hh:mm a')}
                         </p>
                         {selectedOrder.patients?.phone_number && <p className="text-muted" style={{ marginBottom: 0 }}>{selectedOrder.patients.phone_number}</p>}
@@ -1141,6 +1176,7 @@ export default function DashboardPage() {
                         {selectedOrder.patients?.age && <div className="text-muted" style={{ marginBottom: '4px' }}>Age: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.age}</strong></div>}
                         {selectedOrder.patients?.gender && <div className="text-muted" style={{ marginBottom: '4px' }}>Sex: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.gender}</strong></div>}
                         {selectedOrder.patients?.referred_by && <div className="text-muted" style={{ marginBottom: '4px' }}>Ref: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.referred_by}</strong></div>}
+                        {selectedOrder.patients?.department && <div className="text-muted" style={{ marginBottom: '4px' }}>Dept: <strong style={{ color: 'var(--text-main)' }}>{selectedOrder.patients.department}</strong></div>}
                       </div>
                     </div>
                     
@@ -1152,6 +1188,14 @@ export default function DashboardPage() {
                     
                     {selectedOrder.patients?.visit_description && (
                       <p className="visit-desc" style={{ marginTop: '0.75rem' }}>"{selectedOrder.patients.visit_description}"</p>
+                    )}
+
+                    {/* History - Read only in view mode */}
+                    {selectedOrder.patients?.history && (
+                      <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', background: 'var(--primary-light)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' }}>
+                        <strong style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>History:</strong>
+                        <p style={{ margin: '4px 0 0 0', whiteSpace: 'pre-wrap' }}>{selectedOrder.patients.history}</p>
+                      </div>
                     )}
 
                     {/* Reporting - Editable by both admin and receptionist */}
@@ -1242,7 +1286,7 @@ export default function DashboardPage() {
                 <p><strong>Customer Slip</strong></p>
               </div>
               <div className="receipt-details">
-                <p><strong>Receipt #:</strong> {selectedOrder.id.substring(0, 8).toUpperCase()}</p>
+                <p><strong>MR #:</strong> {selectedOrder.patients?.mr_number ? `MR-${selectedOrder.patients.mr_number}` : 'N/A'}</p>
                 <p><strong>Date:</strong> {format(parseISO(selectedOrder.order_date), 'MMM dd, yyyy - hh:mm a')}</p>
                 <p><strong>Patient:</strong> {selectedOrder.patients?.name || 'N/A'}</p>
                 {(selectedOrder.patients?.age || selectedOrder.patients?.gender) && (
@@ -1253,6 +1297,7 @@ export default function DashboardPage() {
                 )}
                 {selectedOrder.patients?.referred_by && <p><strong>Referred by:</strong> {selectedOrder.patients.referred_by}</p>}
                 {selectedOrder.patients?.phone_number && <p><strong>Phone:</strong> {selectedOrder.patients.phone_number}</p>}
+                {selectedOrder.patients?.department && <p><strong>Dept:</strong> {selectedOrder.patients.department}</p>}
               </div>
               <table className="receipt-items">
                 <thead>
@@ -1277,6 +1322,26 @@ export default function DashboardPage() {
                 <span>{selectedOrder.patients?.image ? '☑' : '☐'} Image</span>
                 <span>{selectedOrder.patients?.report ? '☑' : '☐'} Report</span>
               </div>
+              <div style={{ margin: '8px 0', fontSize: '12px' }}>
+                <strong>History:</strong>
+                <div style={{
+                  marginTop: '4px',
+                  border: '1px solid #000',
+                  borderRadius: '3px',
+                  padding: '4px 6px',
+                  minHeight: '52px'
+                }}>
+                  {selectedOrder.patients?.history && selectedOrder.patients.history.trim() ? (
+                    <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.3' }}>{selectedOrder.patients.history}</p>
+                  ) : (
+                    <div>
+                      <div style={{ borderBottom: '1px dotted #777', height: '16px' }}></div>
+                      <div style={{ borderBottom: '1px dotted #777', height: '16px' }}></div>
+                      <div style={{ height: '16px' }}></div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="receipt-totals">
                 <p>Subtotal: <span>Rs {Number(selectedOrder.final_total_pkr) + Number(selectedOrder.discount_applied_pkr)}</span></p>
                 <p>Discount: <span>Rs {selectedOrder.discount_applied_pkr}</span></p>
@@ -1299,9 +1364,12 @@ export default function DashboardPage() {
                 <p><strong>PDC Slip</strong></p>
               </div>
               <div className="receipt-details">
-                <p><strong>Receipt #:</strong> {selectedOrder.id.substring(0, 8).toUpperCase()}</p>
+                <p><strong>MR #:</strong> {selectedOrder.patients?.mr_number ? `MR-${selectedOrder.patients.mr_number}` : 'N/A'}</p>
                 <p><strong>Date:</strong> {format(parseISO(selectedOrder.order_date), 'MMM dd, yyyy - hh:mm a')}</p>
                 <p><strong>Patient:</strong> {selectedOrder.patients?.name || 'N/A'}</p>
+                {selectedOrder.patients?.age && <p><strong>Age:</strong> {selectedOrder.patients.age}</p>}
+                {selectedOrder.patients?.referred_by && <p><strong>Referred by:</strong> {selectedOrder.patients.referred_by}</p>}
+                {selectedOrder.patients?.department && <p><strong>Dept:</strong> {selectedOrder.patients.department}</p>}
               </div>
               <table className="receipt-items">
                 <thead>
@@ -1319,6 +1387,31 @@ export default function DashboardPage() {
                   ))}
                 </tbody>
               </table>
+              <div style={{ margin: '10px 0', fontSize: '13px', display: 'flex', gap: '15px', fontWeight: 'bold' }}>
+                <span>{selectedOrder.patients?.film ? '☑' : '☐'} Film</span>
+                <span>{selectedOrder.patients?.image ? '☑' : '☐'} Image</span>
+                <span>{selectedOrder.patients?.report ? '☑' : '☐'} Report</span>
+              </div>
+              <div style={{ margin: '8px 0', fontSize: '12px' }}>
+                <strong>History:</strong>
+                <div style={{
+                  marginTop: '4px',
+                  border: '1px solid #000',
+                  borderRadius: '3px',
+                  padding: '4px 6px',
+                  minHeight: '52px'
+                }}>
+                  {selectedOrder.patients?.history && selectedOrder.patients.history.trim() ? (
+                    <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.3' }}>{selectedOrder.patients.history}</p>
+                  ) : (
+                    <div>
+                      <div style={{ borderBottom: '1px dotted #777', height: '16px' }}></div>
+                      <div style={{ borderBottom: '1px dotted #777', height: '16px' }}></div>
+                      <div style={{ height: '16px' }}></div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

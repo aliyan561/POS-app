@@ -9,7 +9,7 @@ export default function PosPage() {
   const { role } = useAuth();
   const [services, setServices] = useState([]);
   const [basket, setBasket] = useState([]);
-  const [patient, setPatient] = useState({ salutation: '', name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', hospital: '', film: false, image: false, report: false });
+  const [patient, setPatient] = useState({ salutation: '', name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', hospital: '', department: '', film: false, image: false, report: false, history: '' });
   const [phoneError, setPhoneError] = useState('');
   const [discountValue, setDiscountValue] = useState('');
   const [discountType, setDiscountType] = useState('amount');
@@ -83,7 +83,7 @@ export default function PosPage() {
         setPrintMode('both');
         setOrderSuccess(false);
         setReceiptId(null);
-        setPatient({ salutation: '', name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', hospital: '', film: false, image: false, report: false });
+        setPatient({ salutation: '', name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', hospital: '', department: '', film: false, image: false, report: false, history: '' });
         setBasket([]);
         setDiscountValue('');
         setDiscountType('amount');
@@ -253,9 +253,11 @@ export default function PosPage() {
           gender: patient.gender || null,
           referred_by: patient.referred_by || null,
           hospital: patient.hospital || null,
+          department: patient.department || null,
           film: patient.film,
           image: patient.image,
-          report: patient.report
+          report: patient.report,
+          history: patient.history || null
         }])
         .select()
         .single();
@@ -289,7 +291,7 @@ export default function PosPage() {
         throw itemsError;
       }
 
-      const generatedReceiptId = `PDC ${orderData.receipt_number || orderData.id.substring(0, 8).toUpperCase()}`;
+      const generatedReceiptId = `MR-${patientData.mr_number}`;
       setReceiptId(generatedReceiptId);
       setOrderSuccess(true);
       
@@ -317,7 +319,7 @@ export default function PosPage() {
                   <p><strong>Customer Slip</strong></p>
                 </div>
                 <div className="receipt-details">
-                  <p><strong>Receipt #:</strong> {receiptId || 'Pending'}</p>
+                  <p><strong>MR #:</strong> {receiptId || 'Pending'}</p>
                   <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
                   <p><strong>Patient:</strong> {patient.salutation ? `${patient.salutation} ` : ''}{patient.name || 'N/A'}</p>
                   {(patient.age || patient.gender) && (
@@ -329,6 +331,7 @@ export default function PosPage() {
                   {patient.phone_number && <p><strong>Phone:</strong> {patient.phone_number}</p>}
                   {patient.referred_by && <p><strong>Referred by:</strong> {patient.referred_by}</p>}
                   {patient.hospital && <p><strong>Hospital:</strong> {patient.hospital}</p>}
+                  {patient.department && <p><strong>Dept:</strong> {patient.department}</p>}
                 </div>
                 <table className="receipt-items">
                   <thead>
@@ -352,6 +355,26 @@ export default function PosPage() {
                   <span>{patient.film ? '☑' : '☐'} Film</span>
                   <span>{patient.image ? '☑' : '☐'} Image</span>
                   <span>{patient.report ? '☑' : '☐'} Report</span>
+                </div>
+                <div style={{ margin: '8px 0', fontSize: '12px' }}>
+                  <strong>History:</strong>
+                  <div style={{
+                    marginTop: '4px',
+                    border: '1px solid #000',
+                    borderRadius: '3px',
+                    padding: '4px 6px',
+                    minHeight: '52px'
+                  }}>
+                    {patient.history && patient.history.trim() ? (
+                      <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.3' }}>{patient.history}</p>
+                    ) : (
+                      <div>
+                        <div style={{ borderBottom: '1px dotted #777', height: '16px' }}></div>
+                        <div style={{ borderBottom: '1px dotted #777', height: '16px' }}></div>
+                        <div style={{ height: '16px' }}></div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="receipt-totals">
                   <p>Subtotal: <span>Rs {subtotal}</span></p>
@@ -383,9 +406,12 @@ export default function PosPage() {
                   <p><strong>PDC Slip</strong></p>
                 </div>
                 <div className="receipt-details">
-                  <p><strong>Receipt #:</strong> {receiptId || 'Pending'}</p>
+                  <p><strong>MR #:</strong> {receiptId || 'Pending'}</p>
                   <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
                   <p><strong>Patient:</strong> {patient.name || 'N/A'}</p>
+                  {patient.age && <p><strong>Age:</strong> {patient.age}</p>}
+                  {patient.referred_by && <p><strong>Referred by:</strong> {patient.referred_by}</p>}
+                  {patient.department && <p><strong>Dept:</strong> {patient.department}</p>}
                 </div>
                 <table className="receipt-items">
                   <thead>
@@ -403,7 +429,31 @@ export default function PosPage() {
                     ))}
                   </tbody>
                 </table>
-                {/* Removed Totals for PDC Slip */}
+                <div style={{ margin: '10px 0', fontSize: '13px', display: 'flex', gap: '15px', fontWeight: 'bold' }}>
+                  <span>{patient.film ? '☑' : '☐'} Film</span>
+                  <span>{patient.image ? '☑' : '☐'} Image</span>
+                  <span>{patient.report ? '☑' : '☐'} Report</span>
+                </div>
+                <div style={{ margin: '8px 0', fontSize: '12px' }}>
+                  <strong>History:</strong>
+                  <div style={{
+                    marginTop: '4px',
+                    border: '1px solid #000',
+                    borderRadius: '3px',
+                    padding: '4px 6px',
+                    minHeight: '52px'
+                  }}>
+                    {patient.history && patient.history.trim() ? (
+                      <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.3' }}>{patient.history}</p>
+                    ) : (
+                      <div>
+                        <div style={{ borderBottom: '1px dotted #777', height: '16px' }}></div>
+                        <div style={{ borderBottom: '1px dotted #777', height: '16px' }}></div>
+                        <div style={{ height: '16px' }}></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -558,6 +608,16 @@ export default function PosPage() {
                 onChange={e => setPatient({...patient, hospital: e.target.value})}
               />
             </div>
+            <div className="form-group">
+              <label className="form-label">Department / Specialty</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="e.g. Neuro, Cardio, Ortho"
+                value={patient.department}
+                onChange={e => setPatient({...patient, department: e.target.value})}
+              />
+            </div>
             <div className="form-group" style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', marginBottom: '1rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
                 <input type="checkbox" checked={patient.film} onChange={e => setPatient({...patient, film: e.target.checked})} style={{ width: '16px', height: '16px' }} />
@@ -571,6 +631,16 @@ export default function PosPage() {
                 <input type="checkbox" checked={patient.report} onChange={e => setPatient({...patient, report: e.target.checked})} style={{ width: '16px', height: '16px' }} />
                 Report
               </label>
+            </div>
+            <div className="form-group">
+              <label className="form-label">History</label>
+              <textarea
+                className="form-control"
+                placeholder="Enter patient history notes..."
+                value={patient.history}
+                onChange={e => setPatient({...patient, history: e.target.value})}
+                rows={3}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Search Services</label>
