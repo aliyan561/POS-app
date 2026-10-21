@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Wallet, LogOut, BarChart3, Users, ClipboardList, Bell, Menu, X, Package, Stethoscope } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Wallet, LogOut, BarChart3, Users, ClipboardList, Bell, Menu, X, Package, Stethoscope, Briefcase } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import PosPage from './pages/PosPage';
@@ -11,6 +11,7 @@ import EmployeesPage from './pages/EmployeesPage';
 import AttendancePage from './pages/AttendancePage';
 import InventoryPage from './pages/InventoryPage';
 import ReferredByPage from './pages/ReferredByPage';
+import MarketingPage from './pages/MarketingPage';
 import logo from '../assets/logo-transparent-bg.png';
 import { useAuth } from './AuthContext';
 
@@ -151,6 +152,13 @@ function App() {
               <ClipboardList size={20} />
               <span>Attendance</span>
             </NavLink>
+            <NavLink 
+              to="/marketing" 
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              <Briefcase size={20} />
+              <span>Marketing Visits</span>
+            </NavLink>
             {role === 'admin' && (
               <>
                 <NavLink 
@@ -263,6 +271,7 @@ function App() {
                     : <Navigate to="/dashboard" replace />
                 } 
               />
+              <Route path="/marketing" element={<MarketingPage />} />
             </Routes>
           </div>
         </main>
