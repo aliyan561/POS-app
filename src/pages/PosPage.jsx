@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { Plus, Minus, Trash2, Printer, Edit2, X, ChevronRight, Search, CreditCard, Banknote } from 'lucide-react';
+import { Plus, Minus, Trash2, Printer, Edit2, X, ChevronRight, Search, CreditCard, Banknote, Tag } from 'lucide-react';
 import './PosPage.css';
 import logoImg from '../../assets/with-text-logo.png';
 import { useAuth } from '../AuthContext';
+import PatientLabel from '../components/PatientLabel';
 
 export default function PosPage() {
   const { role } = useAuth();
@@ -19,6 +20,7 @@ export default function PosPage() {
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [receiptId, setReceiptId] = useState(null);
   const [printMode, setPrintMode] = useState('both'); // 'both', 'original', 'token'
+  const [labelPrintMode, setLabelPrintMode] = useState(false);
 
   // Service Modals State
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
@@ -304,7 +306,7 @@ export default function PosPage() {
   };
 
   return (
-    <div className="pos-layout">
+    <div className={`pos-layout${labelPrintMode ? ' printing-label' : ''}`}>
       {/* Column 1: Live Receipt Preview */}
       <div className="pos-receipt-col">
         <div className="receipt-preview-wrapper">
@@ -846,6 +848,26 @@ export default function PosPage() {
                 </>
               )}
             </button>
+
+            <button
+              className="btn btn-outline print-label-btn"
+              onClick={() => {
+                if (!patient.name) return;
+                setLabelPrintMode(true);
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    window.print();
+                    setLabelPrintMode(false);
+                  });
+                });
+              }}
+              disabled={!patient.name}
+              style={{ width: '100%', padding: '0.75rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+            >
+              <Tag size={18} />
+              Print Label
+            </button>
+
             {orderSuccess && <div className="success-msg">Order completed!</div>}
           </div>
         </div>
@@ -964,6 +986,16 @@ export default function PosPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Hidden Print Label */}
+      {labelPrintMode && (
+        <PatientLabel
+          name={`${patient.salutation ? `${patient.salutation} ` : ''}${patient.name || ''}`}
+          date={new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+          tests={basket.map(item => item.service_name).join(', ')}
+          referredBy={patient.referred_by || ''}
+        />
       )}
     </div>
   );

@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { supabase } from '../supabase';
-import { TrendingUp, Users, Calendar, Search, X, Filter, Edit, Check, Printer, FileText } from 'lucide-react';
+import { TrendingUp, Users, Calendar, Search, X, Filter, Edit, Check, Printer, FileText, Tag } from 'lucide-react';
 import './DashboardPage.css';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, isToday, isThisWeek } from 'date-fns';
 import { useAuth } from '../AuthContext';
 import logoImg from '../../assets/with-text-logo.png';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import PatientLabel from '../components/PatientLabel';
 
 export default function DashboardPage() {
   const { role, user } = useAuth();
@@ -52,6 +53,7 @@ export default function DashboardPage() {
   // Reprint State
   const [reprintMode, setReprintMode] = useState(null); // null, 'original', 'token'
   const [isReprinting, setIsReprinting] = useState(false);
+  const [labelPrintMode, setLabelPrintMode] = useState(false);
 
   // Deletion State
   const [isDeleting, setIsDeleting] = useState(false);
@@ -598,6 +600,17 @@ export default function DashboardPage() {
     }
   };
 
+  const handlePrintLabel = () => {
+    if (!selectedOrder) return;
+    setLabelPrintMode(true);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.print();
+        setLabelPrintMode(false);
+      });
+    });
+  };
+
   const handleDeleteClick = async () => {
     if (role === 'admin') {
       if (window.confirm("Are you sure you want to permanently delete this patient and their order?")) {
@@ -763,7 +776,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Overview Cards */}
-      <div className="stats-grid mb-4">
+      <div className="stats-grid mb-4" style={{ gridTemplateColumns: role === 'admin' ? 'repeat(2, 1fr)' : '1fr' }}>
+        {role === 'admin' && (
         <div className="stat-card">
           <div className="stat-icon bg-blue-100 text-blue-600">
             <TrendingUp size={24} />
@@ -775,6 +789,7 @@ export default function DashboardPage() {
             <span className="stat-value">Rs {totalRevenue.toLocaleString()}</span>
           </div>
         </div>
+        )}
         
         <div className="stat-card">
           <div className="stat-icon bg-green-100 text-green-600">
@@ -1080,14 +1095,23 @@ export default function DashboardPage() {
                       >
                         <Printer size={14} /> {isReprinting ? 'Printing...' : 'Reprint'}
                       </button>
-                      <button 
-                        className="btn btn-sm btn-outline" 
+                      <button
+                        className="btn btn-sm btn-outline"
                         style={{ display: 'flex', alignItems: 'center', gap: '4px', borderColor: '#059669', color: '#059669' }}
                         onClick={handleExportPDF}
                         disabled={isModalLoading || isExportingPdf}
                         title="Download patient report as PDF"
                       >
                         <FileText size={14} /> {isExportingPdf ? 'Downloading...' : 'Export PDF'}
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline"
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', borderColor: '#7c3aed', color: '#7c3aed' }}
+                        onClick={handlePrintLabel}
+                        disabled={isModalLoading || orderItems.length === 0}
+                        title="Print patient label sticker"
+                      >
+                        <Tag size={14} /> Print Label
                       </button>
                       <button 
                         className="btn btn-sm btn-outline" 
@@ -1415,6 +1439,16 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Hidden Print Label */}
+      {labelPrintMode && selectedOrder && (
+        <PatientLabel
+          name={selectedOrder.patients?.name || ''}
+          date={selectedOrder.order_date ? format(parseISO(selectedOrder.order_date), 'dd MMM yyyy') : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+          tests={orderItems.map(item => item.services?.service_name || '').filter(Boolean).join(', ')}
+          referredBy={selectedOrder.patients?.referred_by || ''}
+        />
       )}
 
       {/* OTP Modal for Receptionist */}
