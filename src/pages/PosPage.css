@@ -557,7 +557,8 @@
 }
 
 .label-body {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22mm;
   align-items: center;
   gap: 2mm;
 }
@@ -589,6 +590,16 @@
   padding-bottom: 1mm;
   font-size: 9pt;
   line-height: 1.4;
+}
+
+.label-name-row {
+  grid-column: 1 / -1;
+}
+
+.label-patient-name {
+  font-size: 18pt;
+  font-weight: 700;
+  line-height: 1.15;
 }
 
 .label-row:last-child {

@@ -1,8 +1,9 @@
 import { QRCodeSVG } from 'qrcode.react';
 
-export default function PatientLabel({ name, date, tests, referredBy }) {
+export default function PatientLabel({ name, mrNumber, date, tests, referredBy }) {
   const qrDetails = [
     `Patient Name: ${name}`,
+    `MR #: ${mrNumber || 'Pending'}`,
     `Date: ${date}`,
     `Tests: ${tests}`,
     `Ref By: ${referredBy}`
@@ -13,10 +14,14 @@ export default function PatientLabel({ name, date, tests, referredBy }) {
       <div className="label-sticker">
         <div className="label-header">P D C</div>
         <div className="label-body">
+          <div className="label-row label-name-row">
+            <span className="label-key">Patient Name:</span>
+            <span className="label-value label-patient-name">{name}</span>
+          </div>
           <div className="label-fields">
             <div className="label-row">
-              <span className="label-key">Patient Name:</span>
-              <span className="label-value">{name}</span>
+              <span className="label-key">MR #:</span>
+              <span className="label-value">{mrNumber || 'Pending'}</span>
             </div>
             <div className="label-row">
               <span className="label-key">Date:</span>

@@ -1444,6 +1444,7 @@ export default function DashboardPage() {
       {/* Hidden Print Label */}
       {labelPrintMode && selectedOrder && (
         <PatientLabel
+          mrNumber={selectedOrder.patients?.mr_number != null ? `MR-${selectedOrder.patients.mr_number}` : 'N/A'}
           name={selectedOrder.patients?.name || ''}
           date={selectedOrder.order_date ? format(parseISO(selectedOrder.order_date), 'dd MMM yyyy') : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
           tests={orderItems.map(item => item.services?.service_name || '').filter(Boolean).join(', ')}

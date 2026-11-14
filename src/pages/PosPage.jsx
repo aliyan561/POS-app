@@ -991,6 +991,7 @@ export default function PosPage() {
       {/* Hidden Print Label */}
       {labelPrintMode && (
         <PatientLabel
+          mrNumber={receiptId}
           name={`${patient.salutation ? `${patient.salutation} ` : ''}${patient.name || ''}`}
           date={new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
           tests={basket.map(item => item.service_name).join(', ')}
