@@ -488,11 +488,13 @@
   color: var(--text-main);
   font-weight: 600;
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .expense-input-wrapper input::-webkit-outer-spin-button,
 .expense-input-wrapper input::-webkit-inner-spin-button {
   -webkit-appearance: none;
+  appearance: none;
   margin: 0;
 }
 
