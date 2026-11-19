@@ -12,6 +12,7 @@ export default function PosPage() {
   const [basket, setBasket] = useState([]);
   const [patient, setPatient] = useState({ salutation: '', name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', hospital: '', department: '', film: false, image: false, report: false, history: '' });
   const [phoneError, setPhoneError] = useState('');
+  const [paidInput, setPaidInput] = useState('');
   const [discountValue, setDiscountValue] = useState('');
   const [discountType, setDiscountType] = useState('amount');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
@@ -87,6 +88,7 @@ export default function PosPage() {
         setReceiptId(null);
         setPatient({ salutation: '', name: '', phone_number: '', visit_description: '', age: '', gender: '', referred_by: '', hospital: '', department: '', film: false, image: false, report: false, history: '' });
         setBasket([]);
+        setPaidInput('');
         setDiscountValue('');
         setDiscountType('amount');
         setPaymentMethod('Cash');
@@ -232,8 +234,12 @@ export default function PosPage() {
     : numericDiscount;
   const finalTotal = Math.max(0, Math.round(subtotal - discountAmount));
 
+  const paidAmount = paidInput === '' ? finalTotal : Number(paidInput);
+  const validPayment = Number.isSafeInteger(paidAmount) && paidAmount >= 0 && paidAmount <= finalTotal;
+  const balance = finalTotal - paidAmount;
+
   const handleCheckout = async () => {
-    if (!patient.name || basket.length === 0) return;
+    if (!patient.name || basket.length === 0 || !validPayment) return;
     
     // Validate Phone Number if provided
     if (patient.phone_number && !/^03\d{2}-\d{7}$/.test(patient.phone_number)) {
@@ -272,6 +278,7 @@ export default function PosPage() {
           patient_id: patientData.id,
           discount_applied_pkr: Math.round(discountAmount),
           final_total_pkr: finalTotal,
+          paid_amount_pkr: paidAmount,
           payment_method: paymentMethod
         }])
         .select()
@@ -382,6 +389,8 @@ export default function PosPage() {
                   <p>Subtotal: <span>Rs {subtotal}</span></p>
                   <p>Discount: <span>Rs {Math.round(discountAmount)} {discountType === 'percentage' && discountValue ? `(${discountValue}%)` : ''}</span></p>
                   <h3>Total: <span>Rs {finalTotal}</span></h3>
+                  <p>Paid: <span>Rs {paidAmount}</span></p>
+                  <p>Balance due: <span>Rs {balance}</span></p>
                   <p><strong>Payment:</strong> <span>{paymentMethod}</span></p>
                 </div>
                 <div className="receipt-footer">
@@ -836,10 +845,29 @@ export default function PosPage() {
               <span>Rs {finalTotal}</span>
             </div>
             
-            <button 
+            <label className="summary-row">
+              <span>Paid (Rs)</span>
+              <input
+                type="number"
+                className="discount-input"
+                min="0"
+                max={finalTotal}
+                step="1"
+                value={paidInput}
+                placeholder={String(finalTotal)}
+                onChange={e => setPaidInput(e.target.value)}
+                aria-invalid={!validPayment}
+              />
+            </label>
+            <div className="summary-row">
+              <span>Balance due</span>
+              <span>{validPayment ? `Rs ${balance}` : '—'}</span>
+            </div>
+            {!validPayment && <p role="alert">Enter a whole rupee amount between Rs 0 and Rs {finalTotal}.</p>}
+            <button
               className="btn btn-primary checkout-btn" 
               onClick={handleCheckout}
-              disabled={isSubmitting || basket.length === 0 || !patient.name}
+              disabled={isSubmitting || basket.length === 0 || !patient.name || !validPayment}
             >
               {isSubmitting ? 'Processing...' : (
                 <>

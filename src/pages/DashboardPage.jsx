@@ -9,8 +9,42 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import PatientLabel from '../components/PatientLabel';
 
+async function loadDailyClosing() {
+  const day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Karachi' }).format(new Date());
+  const start = new Date(`${day}T00:00:00+05:00`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const totals = { received: 0, payable: 0, bank: 0, cash: 0, unclassified: 0 };
+  const pageSize = 500;
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase.from('orders')
+      .select('final_total_pkr, paid_amount_pkr, payment_method')
+      .gte('order_date', start.toISOString())
+      .lt('order_date', end.toISOString())
+      .order('id')
+      .range(offset, offset + pageSize - 1);
+    if (error) {
+      console.error('Error loading daily closing:', error);
+      return { error: true };
+    }
+
+    for (const order of data) {
+      const total = Number(order.final_total_pkr ?? 0);
+      const paid = Number(order.paid_amount_pkr ?? total);
+      const method = order.payment_method?.trim().toLowerCase();
+      totals.received += paid;
+      totals.payable += total - paid;
+      if (method === 'cash') totals.cash += paid;
+      else if (method === 'card' || method === 'bank') totals.bank += paid;
+      else totals.unclassified += paid;
+    }
+    if (data.length < pageSize) return totals;
+  }
+}
+
 export default function DashboardPage() {
   const { role, user } = useAuth();
+  const [closing, setClosing] = useState(null);
   const [allOrders, setAllOrders] = useState([]);
   const [servicesList, setServicesList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,6 +101,8 @@ export default function DashboardPage() {
 
   async function fetchDashboardData() {
     setIsLoading(true);
+    setClosing(null);
+    const closingRequest = loadDailyClosing();
     
     // Fetch orders with order_items
     const { data: ordersData, error: ordersError } = await supabase
@@ -75,6 +111,7 @@ export default function DashboardPage() {
         id,
         order_date,
         final_total_pkr,
+        paid_amount_pkr,
         discount_applied_pkr,
         injections_cost_pkr,
         commission_pkr,
@@ -116,6 +153,7 @@ export default function DashboardPage() {
 
     if (servicesData) setServicesList(servicesData);
     
+    setClosing(await closingRequest);
     setIsLoading(false);
   }
 
@@ -236,6 +274,11 @@ export default function DashboardPage() {
   const handleSaveEdit = async () => {
     if (!selectedOrder?.patients?.id || !selectedOrder?.id) return;
     
+    if (selectedOrder.paid_amount_pkr != null && Number(editForm.final_total_pkr) < selectedOrder.paid_amount_pkr) {
+      alert('The total cannot be lower than the amount already paid.');
+      return;
+    }
+
     try {
       const patientUpdate = {
         name: editForm.name,
@@ -801,6 +844,36 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <section className="card mb-4" aria-label="Daily sales closing">
+        <div className="card-header">Daily Sales Closing · Today (Karachi)</div>
+        {!closing || closing.error ? (
+          <p className="daily-closing-message" role="status">
+            {closing?.error ? 'Daily closing could not be loaded.' : 'Loading daily closing…'}
+          </p>
+        ) : (
+          <>
+            <div className="daily-closing-grid">
+              {[
+                ['Received', closing.received],
+                ['Payable (balance due)', closing.payable],
+                ['Bank / Card', closing.bank],
+                ['Cash', closing.cash],
+              ].map(([label, value]) => (
+                <div className="stat-card" key={label}>
+                  <div className="stat-details">
+                    <span className="stat-label">{label}</span>
+                    <span className="stat-value">Rs {value.toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {closing.unclassified > 0 && (
+              <p className="daily-closing-message">Received with unknown payment method: Rs {closing.unclassified.toLocaleString()}</p>
+            )}
+          </>
+        )}
+      </section>
 
       {/* History Table */}
       <div className="card flex-1" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1370,6 +1443,8 @@ export default function DashboardPage() {
                 <p>Subtotal: <span>Rs {Number(selectedOrder.final_total_pkr) + Number(selectedOrder.discount_applied_pkr)}</span></p>
                 <p>Discount: <span>Rs {selectedOrder.discount_applied_pkr}</span></p>
                 <h3>Total: <span>Rs {selectedOrder.final_total_pkr}</span></h3>
+                <p>Paid: <span>Rs {selectedOrder.paid_amount_pkr ?? selectedOrder.final_total_pkr}</span></p>
+                <p>Balance due: <span>Rs {Number(selectedOrder.final_total_pkr) - Number(selectedOrder.paid_amount_pkr ?? selectedOrder.final_total_pkr)}</span></p>
               </div>
               <div className="receipt-footer">
                 <p>Please collect your reports between 3:30 PM to 5:30 PM on reporting date</p>

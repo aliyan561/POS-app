@@ -820,3 +820,14 @@
     visibility: hidden !important;
   }
 }
+
+.daily-closing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.daily-closing-message {
+  padding: 0.75rem;
+}
