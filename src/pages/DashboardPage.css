@@ -831,3 +831,37 @@
 .daily-closing-message {
   padding: 0.75rem;
 }
+
+.daily-due-section {
+  padding: 0 0.75rem 0.75rem;
+}
+
+.daily-due-toggle {
+  border: 0;
+  background: none;
+  color: var(--primary);
+  padding: 0.25rem 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.daily-due-list {
+  margin-top: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.daily-due-item {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.daily-due-item:last-child {
+  border-bottom: 0;
+}

@@ -13,12 +13,12 @@ async function loadDailyClosing() {
   const day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Karachi' }).format(new Date());
   const start = new Date(`${day}T00:00:00+05:00`);
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  const totals = { received: 0, payable: 0, bank: 0, cash: 0, unclassified: 0 };
+  const totals = { received: 0, payable: 0, bank: 0, cash: 0, unclassified: 0, dueOrders: [] };
   const pageSize = 500;
 
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase.from('orders')
-      .select('final_total_pkr, paid_amount_pkr, payment_method')
+      .select('id, order_date, final_total_pkr, paid_amount_pkr, payment_method, patients(name, mr_number)')
       .gte('order_date', start.toISOString())
       .lt('order_date', end.toISOString())
       .order('id')
@@ -33,7 +33,18 @@ async function loadDailyClosing() {
       const paid = Number(order.paid_amount_pkr ?? total);
       const method = order.payment_method?.trim().toLowerCase();
       totals.received += paid;
-      totals.payable += total - paid;
+      const due = Math.max(0, total - paid);
+      totals.payable += due;
+      if (due > 0) {
+        totals.dueOrders.push({
+          id: order.id,
+          name: order.patients?.name || 'Unknown patient',
+          mrNumber: order.patients?.mr_number,
+          total,
+          paid,
+          due
+        });
+      }
       if (method === 'cash') totals.cash += paid;
       else if (method === 'card' || method === 'bank') totals.bank += paid;
       else totals.unclassified += paid;
@@ -45,6 +56,7 @@ async function loadDailyClosing() {
 export default function DashboardPage() {
   const { role, user } = useAuth();
   const [closing, setClosing] = useState(null);
+  const [showDueOrders, setShowDueOrders] = useState(false);
   const [allOrders, setAllOrders] = useState([]);
   const [servicesList, setServicesList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,6 +90,7 @@ export default function DashboardPage() {
     image: false,
     report: false,
     final_total_pkr: 0,
+    paid_amount_pkr: '',
     discount_applied_pkr: 0,
     injections_cost_pkr: 0,
     commission_pkr: 0,
@@ -237,6 +250,7 @@ export default function DashboardPage() {
       image: order.patients?.image || false,
       report: order.patients?.report || false,
       final_total_pkr: order.final_total_pkr || 0,
+      paid_amount_pkr: order.paid_amount_pkr ?? '',
       discount_applied_pkr: order.discount_applied_pkr || 0,
       injections_cost_pkr: order.injections_cost_pkr || 0,
       commission_pkr: order.commission_pkr || 0,
@@ -274,8 +288,14 @@ export default function DashboardPage() {
   const handleSaveEdit = async () => {
     if (!selectedOrder?.patients?.id || !selectedOrder?.id) return;
     
-    if (selectedOrder.paid_amount_pkr != null && Number(editForm.final_total_pkr) < selectedOrder.paid_amount_pkr) {
-      alert('The total cannot be lower than the amount already paid.');
+    const newTotal = Number(editForm.final_total_pkr);
+    const newPaid = editForm.paid_amount_pkr === '' ? newTotal : Number(editForm.paid_amount_pkr);
+    if (!Number.isSafeInteger(newTotal) || newTotal < 0) {
+      alert('Enter a valid total in whole rupees.');
+      return;
+    }
+    if (!Number.isSafeInteger(newPaid) || newPaid < 0 || newPaid > newTotal) {
+      alert('Paid must be a whole rupee amount between zero and the final total.');
       return;
     }
 
@@ -296,7 +316,11 @@ export default function DashboardPage() {
       };
 
       const orderUpdate = {
-        final_total_pkr: editForm.final_total_pkr,
+        final_total_pkr: newTotal,
+        // Legacy NULL means fully paid; keep it unless a payment is entered.
+        ...(selectedOrder.paid_amount_pkr != null || editForm.paid_amount_pkr !== ''
+          ? { paid_amount_pkr: newPaid }
+          : {}),
         discount_applied_pkr: editForm.discount_applied_pkr,
         injections_cost_pkr: editForm.injections_cost_pkr,
         commission_pkr: editForm.commission_pkr,
@@ -343,6 +367,7 @@ export default function DashboardPage() {
       }));
       
       setIsEditing(false);
+      setClosing(await loadDailyClosing());
     } catch (err) {
       console.error("Error updating record:", err);
       alert("Failed to update record.");
@@ -675,6 +700,7 @@ export default function DashboardPage() {
       
       setAllOrders(prev => prev.filter(o => o.id !== selectedOrder.id));
       closeModal();
+      setClosing(await loadDailyClosing());
     } catch (err) {
       console.error("Direct delete failed:", err);
       alert("Failed to delete record.");
@@ -727,6 +753,7 @@ export default function DashboardPage() {
         setShowOtpModal(false);
         setOtpInput('');
         closeModal();
+        setClosing(await loadDailyClosing());
       }
     } catch (err) {
       console.error("OTP deletion failed:", err);
@@ -868,6 +895,23 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+            {closing.dueOrders.length > 0 && (
+              <div className="daily-due-section">
+                <button type="button" className="daily-due-toggle" onClick={() => setShowDueOrders(value => !value)} aria-expanded={showDueOrders}>
+                  {showDueOrders ? 'Hide' : 'View'} {closing.dueOrders.length} {closing.dueOrders.length === 1 ? 'order' : 'orders'} with balance
+                </button>
+                {showDueOrders && (
+                  <div className="daily-due-list">
+                    {closing.dueOrders.map(order => (
+                      <div className="daily-due-item" key={order.id}>
+                        <span><strong>{order.name}</strong>{order.mrNumber != null && ` · MR-${order.mrNumber}`}</span>
+                        <span>Rs {order.total.toLocaleString()} total · Rs {order.paid.toLocaleString()} paid · <strong>Rs {order.due.toLocaleString()} due</strong></span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {closing.unclassified > 0 && (
               <p className="daily-closing-message">Received with unknown payment method: Rs {closing.unclassified.toLocaleString()}</p>
             )}
@@ -1362,6 +1406,18 @@ export default function DashboardPage() {
                   ) : (
                     <span className="text-primary">Rs {selectedOrder.final_total_pkr}</span>
                   )}
+                </div>
+                <div className="totals-row">
+                  <span>Paid</span>
+                  {isEditing ? (
+                    <input type="number" className="form-control form-control-sm" style={{ width: '100px' }} min="0" step="1" value={editForm.paid_amount_pkr} placeholder={String(editForm.final_total_pkr)} onChange={e => setEditForm({...editForm, paid_amount_pkr: e.target.value})} aria-label="Paid amount in rupees" />
+                  ) : (
+                    <span>Rs {Number(selectedOrder.paid_amount_pkr ?? selectedOrder.final_total_pkr).toLocaleString()}</span>
+                  )}
+                </div>
+                <div className="totals-row">
+                  <span>Balance due</span>
+                  <strong>Rs {Math.max(0, Number(isEditing ? editForm.final_total_pkr : selectedOrder.final_total_pkr) - Number(isEditing ? (editForm.paid_amount_pkr === '' ? editForm.final_total_pkr : editForm.paid_amount_pkr) : (selectedOrder.paid_amount_pkr ?? selectedOrder.final_total_pkr))).toLocaleString()}</strong>
                 </div>
               </div>
 
