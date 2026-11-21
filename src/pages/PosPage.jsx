@@ -390,7 +390,7 @@ export default function PosPage() {
                   <p>Discount: <span>Rs {Math.round(discountAmount)} {discountType === 'percentage' && discountValue ? `(${discountValue}%)` : ''}</span></p>
                   <h3>Total: <span>Rs {finalTotal}</span></h3>
                   <p>Paid: <span>Rs {paidAmount}</span></p>
-                  <p>Balance due: <span>Rs {balance}</span></p>
+                  <p>{balance > 0 ? 'Payable (balance due)' : 'Balance due'}: <span>Rs {balance}</span></p>
                   <p><strong>Payment:</strong> <span>{paymentMethod}</span></p>
                 </div>
                 <div className="receipt-footer">

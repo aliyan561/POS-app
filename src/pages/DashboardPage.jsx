@@ -13,14 +13,14 @@ async function loadDailyClosing() {
   const day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Karachi' }).format(new Date());
   const start = new Date(`${day}T00:00:00+05:00`);
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  const totals = { received: 0, payable: 0, bank: 0, cash: 0, unclassified: 0, dueOrders: [] };
+  const totals = { received: 0, payable: 0, bank: 0, cash: 0, unclassified: 0, dueOrders: [], setupRequired: false };
+  const oldClosing = { received: 0, bank: 0, cash: 0, unclassified: 0 };
+  const activeOrderIds = new Set();
   const pageSize = 500;
 
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase.from('orders')
       .select('id, order_date, final_total_pkr, paid_amount_pkr, payment_method, patients(name, mr_number)')
-      .gte('order_date', start.toISOString())
-      .lt('order_date', end.toISOString())
       .order('id')
       .range(offset, offset + pageSize - 1);
     if (error) {
@@ -29,10 +29,17 @@ async function loadDailyClosing() {
     }
 
     for (const order of data) {
+      activeOrderIds.add(String(order.id));
       const total = Number(order.final_total_pkr ?? 0);
       const paid = Number(order.paid_amount_pkr ?? total);
-      const method = order.payment_method?.trim().toLowerCase();
-      totals.received += paid;
+      const orderTime = new Date(order.order_date).getTime();
+      if (orderTime >= start.getTime() && orderTime < end.getTime()) {
+        oldClosing.received += paid;
+        const method = order.payment_method?.trim().toLowerCase();
+        if (method === 'cash') oldClosing.cash += paid;
+        else if (method === 'card' || method === 'bank') oldClosing.bank += paid;
+        else oldClosing.unclassified += paid;
+      }
       const due = Math.max(0, total - paid);
       totals.payable += due;
       if (due > 0) {
@@ -45,9 +52,32 @@ async function loadDailyClosing() {
           due
         });
       }
-      if (method === 'cash') totals.cash += paid;
-      else if (method === 'card' || method === 'bank') totals.bank += paid;
-      else totals.unclassified += paid;
+    }
+    if (data.length < pageSize) break;
+  }
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase.from('order_payments')
+      .select('order_id, amount_pkr, payment_method')
+      .gte('received_at', start.toISOString())
+      .lt('received_at', end.toISOString())
+      .order('id')
+      .range(offset, offset + pageSize - 1);
+    if (error) {
+      console.error('Error loading payments for daily closing:', error);
+      if (['42P01', 'PGRST205'].includes(error.code)) {
+        return { ...totals, ...oldClosing, setupRequired: true };
+      }
+      return { error: true };
+    }
+    for (const payment of data) {
+      // Keep the ledger intact when an order is deleted, but exclude its payment from closing.
+      if (!activeOrderIds.has(payment.order_id)) continue;
+      const amount = Number(payment.amount_pkr);
+      totals.received += amount;
+      if (payment.payment_method === 'Cash') totals.cash += amount;
+      else if (payment.payment_method === 'Card') totals.bank += amount;
+      else totals.unclassified += amount;
     }
     if (data.length < pageSize) return totals;
   }
@@ -57,6 +87,11 @@ export default function DashboardPage() {
   const { role, user } = useAuth();
   const [closing, setClosing] = useState(null);
   const [showDueOrders, setShowDueOrders] = useState(false);
+  const [paymentOrder, setPaymentOrder] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [paymentError, setPaymentError] = useState('');
+  const [isReceivingPayment, setIsReceivingPayment] = useState(false);
   const [allOrders, setAllOrders] = useState([]);
   const [servicesList, setServicesList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,6 +108,7 @@ export default function DashboardPage() {
   // Modal state
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
+  const [paymentHistory, setPaymentHistory] = useState([]);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -235,6 +271,8 @@ export default function DashboardPage() {
 
   const handlePatientClick = async (order) => {
     setSelectedOrder(order);
+    setPaymentError('');
+    setPaymentHistory([]);
     setIsEditing(false);
     setEditForm({
       name: order.patients?.name || '',
@@ -275,6 +313,14 @@ export default function DashboardPage() {
     } else if (data) {
       setOrderItems(data);
     }
+
+    if (!closing?.setupRequired) {
+      const { data: payments } = await supabase.from('order_payments')
+        .select('id, amount_pkr, payment_method, received_at, kind')
+        .eq('order_id', String(order.id))
+        .order('received_at', { ascending: false });
+      if (payments) setPaymentHistory(payments);
+    }
     
     setIsModalLoading(false);
   };
@@ -282,7 +328,63 @@ export default function DashboardPage() {
   const closeModal = () => {
     setSelectedOrder(null);
     setOrderItems([]);
+    setPaymentHistory([]);
     setIsEditing(false);
+  };
+
+  const openBalancePayment = async (order) => {
+    setPaymentError('');
+    if (closing?.setupRequired || closing?.error) {
+      setPaymentError('Payment setup is needed before receiving balances.');
+      return;
+    }
+    const { data, error } = await supabase.from('orders')
+      .select('id, final_total_pkr, paid_amount_pkr, patients(name, mr_number)')
+      .eq('id', order.id).single();
+    if (error) {
+      setPaymentError('Could not load the latest balance. Please refresh and try again.');
+      return;
+    }
+    const total = Number(data.final_total_pkr);
+    const paid = Number(data.paid_amount_pkr ?? total);
+    const due = Math.max(0, total - paid);
+    if (due === 0) {
+      setClosing(await loadDailyClosing());
+      setPaymentError('This order has no remaining balance.');
+      return;
+    }
+    closeModal();
+    setPaymentOrder({ id: data.id, name: data.patients?.name || order.name,
+      mrNumber: data.patients?.mr_number, total, paid, due });
+    setPaymentAmount(String(due));
+    setPaymentMethod('Cash');
+  };
+
+  const receiveBalancePayment = async () => {
+    if (!paymentOrder || isReceivingPayment) return;
+    const amount = Number(paymentAmount);
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > paymentOrder.due) {
+      setPaymentError(`Enter a whole rupee amount between Rs 1 and Rs ${paymentOrder.due}.`);
+      return;
+    }
+    setIsReceivingPayment(true);
+    setPaymentError('');
+    try {
+      const { data, error } = await supabase.rpc('receive_order_balance', {
+        p_order_id: String(paymentOrder.id), p_amount_pkr: amount, p_method: paymentMethod
+      });
+      if (error) throw error;
+      const paid = Number(data.paid_amount_pkr);
+      setAllOrders(prev => prev.map(order => order.id === paymentOrder.id ? { ...order, paid_amount_pkr: paid } : order));
+      setSelectedOrder(prev => prev?.id === paymentOrder.id ? { ...prev, paid_amount_pkr: paid } : prev);
+      setPaymentOrder(null);
+      setClosing(await loadDailyClosing());
+    } catch (error) {
+      console.error('Could not receive balance payment:', error);
+      setPaymentError('Payment was not saved. The balance may have changed. Refresh and try again.');
+    } finally {
+      setIsReceivingPayment(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -580,6 +682,12 @@ export default function DashboardPage() {
             </div>` : ''}
             <div style="display: flex; justify-content: space-between; padding: 8px 14px 4px 14px; font-size: 15px; font-weight: 800; color: #1d4ed8; border-top: 2px solid #1d4ed8; margin-top: 6px;">
               <span>Final Total</span><span>Rs ${finalTotal.toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 14px; font-size: 13px; color: #475569;">
+              <span>Paid</span><span>Rs ${Number(selectedOrder.paid_amount_pkr ?? finalTotal).toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 14px; font-size: 13px; font-weight: 700; color: #0f172a;">
+              <span>Balance due</span><span>Rs ${Math.max(0, finalTotal - Number(selectedOrder.paid_amount_pkr ?? finalTotal)).toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -880,6 +988,9 @@ export default function DashboardPage() {
           </p>
         ) : (
           <>
+            {closing.setupRequired && (
+              <p className="daily-closing-message" role="status">Balance payment setup is pending. Daily received amounts use the old calculation until the database migration is applied.</p>
+            )}
             <div className="daily-closing-grid">
               {[
                 ['Received', closing.received],
@@ -887,29 +998,40 @@ export default function DashboardPage() {
                 ['Bank / Card', closing.bank],
                 ['Cash', closing.cash],
               ].map(([label, value]) => (
+                label.startsWith('Payable') ? (
+                <button type="button" className="stat-card payable-card" key={label}
+                  onClick={() => setShowDueOrders(value => !value)} aria-expanded={showDueOrders}
+                  title={closing.dueOrders.length ? closing.dueOrders.map(order => `${order.name}: Rs ${order.due.toLocaleString()} due`).join('\n') : 'No outstanding balances'}>
+                  <div className="stat-details">
+                    <span className="stat-label">Payable (all dates) · View patients</span>
+                    <span className="stat-value">Rs {value.toLocaleString()}</span>
+                  </div>
+                </button>
+                ) : (
                 <div className="stat-card" key={label}>
                   <div className="stat-details">
                     <span className="stat-label">{label}</span>
                     <span className="stat-value">Rs {value.toLocaleString()}</span>
                   </div>
                 </div>
+                )
               ))}
             </div>
-            {closing.dueOrders.length > 0 && (
+            {showDueOrders && (
               <div className="daily-due-section">
-                <button type="button" className="daily-due-toggle" onClick={() => setShowDueOrders(value => !value)} aria-expanded={showDueOrders}>
-                  {showDueOrders ? 'Hide' : 'View'} {closing.dueOrders.length} {closing.dueOrders.length === 1 ? 'order' : 'orders'} with balance
-                </button>
-                {showDueOrders && (
+                <strong>Outstanding balances · {closing.dueOrders.length} {closing.dueOrders.length === 1 ? 'order' : 'orders'}</strong>
+                {closing.dueOrders.length ? (
                   <div className="daily-due-list">
                     {closing.dueOrders.map(order => (
                       <div className="daily-due-item" key={order.id}>
                         <span><strong>{order.name}</strong>{order.mrNumber != null && ` · MR-${order.mrNumber}`}</span>
                         <span>Rs {order.total.toLocaleString()} total · Rs {order.paid.toLocaleString()} paid · <strong>Rs {order.due.toLocaleString()} due</strong></span>
+                        <button type="button" className="btn btn-sm btn-primary" onClick={() => openBalancePayment(order)} disabled={closing.setupRequired}>Receive payment</button>
                       </div>
                     ))}
                   </div>
-                )}
+                ) : <p>No outstanding balances.</p>}
+                {paymentError && !paymentOrder && <p role="alert" className="text-danger">{paymentError}</p>}
               </div>
             )}
             {closing.unclassified > 0 && (
@@ -1419,8 +1541,50 @@ export default function DashboardPage() {
                   <span>Balance due</span>
                   <strong>Rs {Math.max(0, Number(isEditing ? editForm.final_total_pkr : selectedOrder.final_total_pkr) - Number(isEditing ? (editForm.paid_amount_pkr === '' ? editForm.final_total_pkr : editForm.paid_amount_pkr) : (selectedOrder.paid_amount_pkr ?? selectedOrder.final_total_pkr))).toLocaleString()}</strong>
                 </div>
+                {!isEditing && Number(selectedOrder.final_total_pkr) > Number(selectedOrder.paid_amount_pkr ?? selectedOrder.final_total_pkr) && (
+                  <button type="button" className="btn btn-primary" onClick={() => openBalancePayment(selectedOrder)} disabled={!closing || closing.setupRequired || closing.error}>Receive payment</button>
+                )}
+                {paymentError && !paymentOrder && <p role="alert" className="text-danger">{paymentError}</p>}
               </div>
+              {!isEditing && paymentHistory.length > 0 && (
+                <div className="payment-history">
+                  <h4>Payment history</h4>
+                  {paymentHistory.map(payment => (
+                    <div className="totals-row" key={payment.id}>
+                      <span>{payment.kind === 'booking' ? 'Booking' : 'Balance'} · {format(parseISO(payment.received_at), 'MMM dd, yyyy · hh:mm a')} · {payment.payment_method}</span>
+                      <strong>Rs {Number(payment.amount_pkr).toLocaleString()}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paymentOrder && (
+        <div className="modal-overlay" onClick={() => !isReceivingPayment && setPaymentOrder(null)}>
+          <div className="modal-content payment-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Receive balance payment">
+            <div className="modal-header">
+              <h2>Receive payment</h2>
+              <button type="button" className="close-btn" onClick={() => setPaymentOrder(null)} disabled={isReceivingPayment} aria-label="Close"><X size={20} /></button>
+            </div>
+            <div className="modal-body">
+              <p><strong>{paymentOrder.name}</strong>{paymentOrder.mrNumber != null && ` · MR-${paymentOrder.mrNumber}`}</p>
+              <p>Final total: Rs {paymentOrder.total.toLocaleString()} · Already paid: Rs {paymentOrder.paid.toLocaleString()}</p>
+              <p><strong>Balance due: Rs {paymentOrder.due.toLocaleString()}</strong></p>
+              <label className="form-label" htmlFor="balance-payment-amount">Amount received (Rs)</label>
+              <input id="balance-payment-amount" className="form-control" type="number" min="1" max={paymentOrder.due} step="1" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
+              <label className="form-label" htmlFor="balance-payment-method">Received by</label>
+              <select id="balance-payment-method" className="form-control" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                <option value="Cash">Cash</option>
+                <option value="Card">Card / Bank</option>
+              </select>
+              {paymentError && <p role="alert" className="text-danger">{paymentError}</p>}
+              <button type="button" className="btn btn-primary payment-submit" onClick={receiveBalancePayment} disabled={isReceivingPayment}>
+                {isReceivingPayment ? 'Saving...' : `Record Rs ${Number(paymentAmount || 0).toLocaleString()} payment`}
+              </button>
             </div>
           </div>
         </div>
@@ -1500,7 +1664,7 @@ export default function DashboardPage() {
                 <p>Discount: <span>Rs {selectedOrder.discount_applied_pkr}</span></p>
                 <h3>Total: <span>Rs {selectedOrder.final_total_pkr}</span></h3>
                 <p>Paid: <span>Rs {selectedOrder.paid_amount_pkr ?? selectedOrder.final_total_pkr}</span></p>
-                <p>Balance due: <span>Rs {Number(selectedOrder.final_total_pkr) - Number(selectedOrder.paid_amount_pkr ?? selectedOrder.final_total_pkr)}</span></p>
+                <p>{Number(selectedOrder.final_total_pkr) > Number(selectedOrder.paid_amount_pkr ?? selectedOrder.final_total_pkr) ? 'Payable (balance due)' : 'Balance due'}: <span>Rs {Number(selectedOrder.final_total_pkr) - Number(selectedOrder.paid_amount_pkr ?? selectedOrder.final_total_pkr)}</span></p>
               </div>
               <div className="receipt-footer">
                 <p>Please collect your reports between 3:30 PM to 5:30 PM on reporting date</p>

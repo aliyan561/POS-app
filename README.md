@@ -58,3 +58,11 @@ This application relies on a relational PostgreSQL database with the following c
 
 - **Row Level Security (RLS)** is heavily utilized on the Supabase backend to ensure that database queries only succeed if the user is authenticated and authorized.
 - Environment variables are strictly ignored from version control to prevent credential leakage.
+
+## Balance payments
+
+Run `supabase_balance_payments_migration.sql` once in the Supabase SQL Editor after
+`supabase_payments_migration.sql`. It records the original booking payment and
+later balance payments separately, so the daily closing uses the date money was
+received. Until this migration is applied, the dashboard shows the existing
+closing calculation and disables balance collection.

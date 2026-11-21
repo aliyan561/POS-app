@@ -836,14 +836,17 @@
   padding: 0 0.75rem 0.75rem;
 }
 
-.daily-due-toggle {
-  border: 0;
-  background: none;
-  color: var(--primary);
-  padding: 0.25rem 0;
+.payable-card {
+  width: 100%;
+  text-align: left;
   font: inherit;
-  font-weight: 600;
   cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.payable-card:hover, .payable-card:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
 }
 
 .daily-due-list {
@@ -856,6 +859,7 @@
 .daily-due-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.25rem 1rem;
   padding: 0.65rem 0.75rem;
@@ -864,4 +868,29 @@
 
 .daily-due-item:last-child {
   border-bottom: 0;
+}
+
+.payment-modal {
+  max-width: 440px;
+}
+
+.payment-modal .form-label {
+  display: block;
+  margin-top: 1rem;
+}
+
+.payment-submit {
+  width: 100%;
+  margin-top: 1.25rem;
+}
+
+.payment-history {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.payment-history h4 {
+  margin-bottom: 0.5rem;
 }
