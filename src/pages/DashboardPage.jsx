@@ -93,6 +93,8 @@ export default function DashboardPage() {
   const [paymentError, setPaymentError] = useState('');
   const [isReceivingPayment, setIsReceivingPayment] = useState(false);
   const [allOrders, setAllOrders] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
   const [servicesList, setServicesList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -154,9 +156,13 @@ export default function DashboardPage() {
     const closingRequest = loadDailyClosing();
     
     // Fetch orders with order_items
-    const { data: ordersData, error: ordersError } = await supabase
-      .from('orders')
-      .select(`
+    const ordersData = [];
+    const pageSize = 500;
+    let ordersError = null;
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
         id,
         order_date,
         final_total_pkr,
@@ -188,8 +194,14 @@ export default function DashboardPage() {
             price_pkr
           )
         )
-      `)
-      .order('order_date', { ascending: false });
+        `)
+        .order('order_date', { ascending: false })
+        .order('id', { ascending: false })
+        .range(offset, offset + pageSize - 1);
+      if (error) { ordersError = error; break; }
+      ordersData.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+    }
 
     // Fetch services for dropdown
     const { data: servicesData } = await supabase
@@ -198,7 +210,7 @@ export default function DashboardPage() {
       .order('service_name', { ascending: true });
 
     if (ordersError) console.error("Error fetching dashboard data:", ordersError);
-    else if (ordersData) setAllOrders(ordersData);
+    else if (ordersData) { setAllOrders(ordersData); setCurrentPage(1); }
 
     if (servicesData) setServicesList(servicesData);
     
@@ -268,6 +280,9 @@ export default function DashboardPage() {
   }, 0);
 
   const totalPatients = filteredOrders.length;
+  const pageCount = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
+  const paginatedOrders = filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  useEffect(() => { setCurrentPage(1); }, [dateFilterType, filterMonth, filterStartDate, filterEndDate, serviceFilter, searchQuery]);
 
   const handlePatientClick = async (order) => {
     setSelectedOrder(order);
@@ -1093,7 +1108,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOrders.map(order => (
+                    {paginatedOrders.map(order => (
                       <Fragment key={order.id}>
                         <tr className="main-row">
                           <td data-label="Date">
@@ -1206,7 +1221,7 @@ export default function DashboardPage() {
 
               {/* Mobile Cards */}
               <div className="mobile-cards-list mobile-only">
-                {filteredOrders.map(order => (
+                {paginatedOrders.map(order => (
                   <div key={order.id} className="patient-card" onClick={() => handlePatientClick(order)}>
                     <div className="patient-card-top">
                       <div className="patient-card-info">
@@ -1291,6 +1306,14 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="dashboard-pagination" aria-label="Order pages">
+                <span>Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredOrders.length)} of {filteredOrders.length} visits</span>
+                <div>
+                  <button type="button" className="btn btn-outline" disabled={currentPage <= 1} onClick={() => setCurrentPage(page => Math.max(1, page - 1))}>Previous</button>
+                  <span>Page {currentPage} of {pageCount}</span>
+                  <button type="button" className="btn btn-outline" disabled={currentPage >= pageCount} onClick={() => setCurrentPage(page => Math.min(pageCount, page + 1))}>Next</button>
+                </div>
               </div>
             </>
           )}
